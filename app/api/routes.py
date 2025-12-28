@@ -6,8 +6,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.core.database import get_session
-from app.core.models import Transaction, User, Category, CategoryType
+from app.core.models import Transaction, User, Category, CategoryType, RecurringTransaction
 from app.core.auth import create_access_token, get_current_user, get_password_hash, verify_password
+from app.api.utils import process_recurring_transactions
 from datetime import timedelta
 
 # --- Routers ---
@@ -57,6 +58,23 @@ class CategoryRead(BaseModel):
 class UserRead(BaseModel):
     id: int
     username: str
+
+class RecurringTransactionCreate(BaseModel):
+    title: str
+    amount: int
+    category_id: int
+    type: str
+    day_of_month: int
+
+class RecurringTransactionRead(BaseModel):
+    id: int
+    title: str
+    amount: int
+    category_id: int
+    type: str
+    day_of_month: int
+    last_run_date: Optional[date]
+    is_active: bool
 
 # --- Authentication Endpoints ---
 @auth_router.post("/token")
@@ -159,6 +177,9 @@ def get_transactions(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    # Check for recurring transactions
+    process_recurring_transactions(session, current_user.id)
+
     statement = select(Transaction, Category).join(Category).where(Transaction.owner_id == current_user.id).order_by(Transaction.date.desc())
     results = session.exec(statement).all()
     
@@ -180,6 +201,9 @@ def get_balance(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    # Check for recurring transactions
+    process_recurring_transactions(session, current_user.id)
+
     statement = select(Transaction.amount, Category.type).join(Category).where(Transaction.owner_id == current_user.id)
     transactions = session.exec(statement).all()
     liquid_balance = sum(t[0] for t in transactions if t[1] != CategoryType.VAULT)
@@ -227,5 +251,51 @@ def delete_category(
         raise HTTPException(status_code=400, detail="Cannot delete category: it is currently in use by one or more transactions.")
 
     session.delete(category)
+    session.commit()
+    return
+
+# --- Recurring Transaction Endpoints ---
+@router.post("/recurring/", response_model=RecurringTransactionRead, status_code=status.HTTP_201_CREATED)
+def create_recurring_transaction(
+    recurring_data: RecurringTransactionCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    category = session.exec(select(Category).where(Category.id == recurring_data.category_id, Category.owner_id == current_user.id)).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    recurring_transaction = RecurringTransaction(
+        title=recurring_data.title,
+        amount=recurring_data.amount,
+        category_id=category.id,
+        type=recurring_data.type,
+        day_of_month=recurring_data.day_of_month,
+        owner_id=current_user.id
+    )
+    session.add(recurring_transaction)
+    session.commit()
+    session.refresh(recurring_transaction)
+    return recurring_transaction
+
+@router.get("/recurring/", response_model=List[RecurringTransactionRead])
+def get_recurring_transactions(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    recurring_transactions = session.exec(select(RecurringTransaction).where(RecurringTransaction.owner_id == current_user.id)).all()
+    return recurring_transactions
+
+@router.delete("/recurring/{recurring_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_recurring_transaction(
+    recurring_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    recurring_transaction = session.exec(select(RecurringTransaction).where(RecurringTransaction.id == recurring_id, RecurringTransaction.owner_id == current_user.id)).first()
+    if not recurring_transaction:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurring transaction not found")
+    
+    session.delete(recurring_transaction)
     session.commit()
     return

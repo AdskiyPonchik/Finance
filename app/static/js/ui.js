@@ -72,10 +72,22 @@ export function renderCategoryTags(categories) {
         filtered.forEach(cat => {
             const tag = document.createElement('div');
             tag.className = 'category-tag';
-            tag.textContent = cat.name;
+            tag.textContent = cat.name; // This sets the text content, potentially overwriting children if appended later? No, textContent replaces all children.
+            // Better to create a text node for the name
+            tag.textContent = ''; // Clear
+            tag.appendChild(document.createTextNode(cat.name));
+            
             tag.style.backgroundColor = cat.color;
             tag.dataset.id = cat.id;
             tag.dataset.name = cat.name;
+            tag.dataset.type = cat.type; // Add type for smart select
+
+            const deleteBtn = document.createElement('span');
+            deleteBtn.className = 'delete-cat-btn';
+            deleteBtn.dataset.id = cat.id;
+            deleteBtn.textContent = '×';
+            tag.appendChild(deleteBtn);
+
             container.appendChild(tag);
         });
     });
@@ -149,4 +161,33 @@ export function openModal(modalId) {
 
 export function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+}
+
+export function updateToggleState(groupId, selectedValue) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+
+    // Update active class on buttons
+    const buttons = group.querySelectorAll('button');
+    buttons.forEach(btn => {
+        if (btn.dataset.value === selectedValue) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Update hidden input value
+    const hiddenInput = group.nextElementSibling;
+    if (hiddenInput && hiddenInput.type === 'hidden') {
+        hiddenInput.value = selectedValue;
+    }
+
+    // Handle visibility of Vault Action toggle
+    if (groupId === 'tx-type-toggle-group') {
+        const vaultActionToggle = document.getElementById('vault-action-toggle');
+        if (vaultActionToggle) {
+            vaultActionToggle.style.display = selectedValue === 'vault' ? 'block' : 'none';
+        }
+    }
 }

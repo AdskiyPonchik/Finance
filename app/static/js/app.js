@@ -9,7 +9,8 @@ import {
     fetchUser, 
     saveTransactionApi, 
     deleteTransactionApi, 
-    createCategoryApi 
+    createCategoryApi,
+    deleteCategoryApi
 } from './api.js';
 
 import { 
@@ -21,7 +22,8 @@ import {
     renderChart, 
     selectCategory, 
     openModal, 
-    closeModal 
+    closeModal,
+    updateToggleState
 } from './ui.js';
 
 let currentTransactionId = null;
@@ -149,19 +151,45 @@ function attachEventListeners() {
         saveTransaction();
     });
 
-    document.getElementById('category-tag-cloud').addEventListener('click', (e) => {
-        if (e.target.classList.contains('category-tag')) {
-            selectCategory(e.target);
+    document.getElementById('category-tag-cloud').addEventListener('click', async (e) => {
+        // Handle Delete
+        if (e.target.classList.contains('delete-cat-btn')) {
+            e.stopPropagation();
+            const catId = e.target.dataset.id;
+            if (confirm('Delete this category?')) {
+                try {
+                    await deleteCategoryApi(catId);
+                    showToast('Category deleted.', 'success');
+                    const categories = await fetchCategories();
+                    renderCategoryTags(categories);
+                } catch (error) {
+                    showToast(`Delete failed: ${error.message}`, 'error');
+                }
+            }
+            return;
+        }
+
+        // Handle Select
+        const tag = e.target.closest('.category-tag');
+        if (tag) {
+            selectCategory(tag);
+            const type = tag.dataset.type;
+            if (type) {
+                updateToggleState('tx-type-toggle-group', type);
+            }
         }
     });
 
     document.getElementById('save-category-btn').addEventListener('click', saveNewCategory);
 
-    // --- Form Type Switch ---
-    document.querySelectorAll('input[name="category_type"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const type = e.target.value;
-            document.getElementById('vault-action-toggle').style.display = type === 'vault' ? 'block' : 'none';
+    // --- Toggle Group Logic ---
+    document.querySelectorAll('.toggle-group').forEach(group => {
+        group.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                e.preventDefault(); // Prevent form submission
+                const selectedValue = e.target.dataset.value;
+                updateToggleState(group.id, selectedValue);
+            }
         });
     });
 }
@@ -172,8 +200,10 @@ function openAddModal() {
     document.getElementById('add-tx-form').reset();
     document.getElementById('tx-date').valueAsDate = new Date();
     document.getElementById('edit-tx-id').value = '';
-    document.getElementById('vault-action-toggle').style.display = 'none';
-    document.querySelector('input[name="category_type"][value="expense"]').checked = true;
+    
+    // Reset toggles
+    updateToggleState('tx-type-toggle-group', 'expense');
+    updateToggleState('vault-action-toggle-group', 'deposit');
     
     const selectedTag = document.querySelector('.category-tag.selected');
     if (selectedTag) selectedTag.classList.remove('selected');
@@ -192,13 +222,12 @@ function openEditModal(tx) {
     document.getElementById('tx-amount').value = Math.abs(tx.amount / 100).toFixed(2);
     document.getElementById('tx-date').value = tx.date.split('T')[0];
 
-    const typeRadio = document.querySelector(`input[name="category_type"][value="${tx.category_type}"]`);
-    if (typeRadio) typeRadio.checked = true;
+    // Set transaction type toggle
+    updateToggleState('tx-type-toggle-group', tx.category_type);
     
-    document.getElementById('vault-action-toggle').style.display = tx.category_type === 'vault' ? 'block' : 'none';
     if (tx.category_type === 'vault') {
         const vaultAction = tx.amount > 0 ? 'withdraw' : 'deposit';
-        document.querySelector(`input[name="vault_action"][value="${vaultAction}"]`).checked = true;
+        updateToggleState('vault-action-toggle-group', vaultAction);
     }
 
     const selectedTag = document.querySelector('.category-tag.selected');
@@ -225,11 +254,11 @@ async function saveTransaction() {
     }
     let amountCents = Math.round(amountRaw * 100);
 
-    const txType = document.querySelector('input[name="category_type"]:checked').value;
+    const txType = document.getElementById('category_type').value;
     if (txType === 'expense') {
         amountCents = -amountCents;
     } else if (txType === 'vault') {
-        const vaultAction = document.querySelector('input[name="vault_action"]:checked').value;
+        const vaultAction = document.getElementById('vault_action').value;
         if (vaultAction === 'deposit') {
             amountCents = -amountCents;
         }
@@ -258,7 +287,7 @@ async function saveTransaction() {
 async function saveNewCategory() {
     const name = document.getElementById('new-category-name').value.trim();
     const color = document.getElementById('new-category-color').value;
-    const type = document.querySelector('input[name="category_type"]:checked').value;
+    const type = document.getElementById('category_type').value;
 
     if (!name) {
         showToast('Please enter a category name.', 'error');

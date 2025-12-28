@@ -95,3 +95,11 @@ export async function createCategoryApi(data) {
     });
     return handleResponse(res);
 }
+
+export async function deleteCategoryApi(id) {
+    const res = await fetch(`${apiBase}/categories/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+    return handleResponse(res);
+}

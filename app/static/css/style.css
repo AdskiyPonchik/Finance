@@ -284,26 +284,36 @@ body {
 }
 
 
-.type-switch {
+/* --- Toggle Group (Replaces .type-switch) --- */
+.toggle-group {
     display: flex;
-    border: 1px solid var(--border-color);
+    border: 1px solid #6D4C41; /* Coffee border */
     border-radius: 8px;
-    overflow: hidden;
+    overflow: hidden; /* CRITICAL: Clips the child buttons to the rounded corners */
+    padding: 0;      /* CRITICAL: Removes white gaps */
+    margin-bottom: 15px;
 }
-.type-switch input[type="radio"] {
-    display: none;
-}
-.type-switch label {
-    flex-grow: 1;
-    text-align: center;
-    padding: 12px;
+
+.toggle-group button {
+    flex: 1; /* Equal width */
+    border: none;
+    border-radius: 0; /* Let container handle corners */
+    padding: 12px 0;
+    margin: 0; /* CRITICAL */
+    background-color: transparent;
+    color: #6D4C41;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, color 0.2s;
+    font-weight: 500;
 }
-.type-switch input[type="radio"]:checked + label {
-    background-color: var(--accent-latte);
-    color: var(--text-light);
-    font-weight: bold;
+
+.toggle-group button.active {
+    background-color: #6D4C41; /* Active Coffee */
+    color: #fff;
+}
+
+.toggle-group button:not(:last-child) {
+    border-right: 1px solid #6D4C41; /* Separator line */
 }
 
 .category-tag-cloud {
@@ -451,4 +461,16 @@ body {
     .mobile-only {
         display: none;
     }
+}
+
+/* --- Delete Category Button --- */
+.delete-cat-btn {
+    margin-left: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.7;
+}
+.delete-cat-btn:hover {
+    opacity: 1.0;
+    color: #c0392b;
 }

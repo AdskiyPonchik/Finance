@@ -128,14 +128,13 @@
             <!-- Transaction Type -->
             <div class="form-group">
                 <label>Transaction Type</label>
-                <div id="tx-type-switch" class="type-switch">
-                    <input type="radio" id="type-expense" name="category_type" value="expense" checked>
-                    <label for="type-expense">Expense</label>
-                    <input type="radio" id="type-income" name="category_type" value="income">
-                    <label for="type-income">Income</label>
-                    <input type="radio" id="type-vault" name="category_type" value="vault">
-                    <label for="type-vault">Vault</label>
+                <div id="tx-type-toggle-group" class="toggle-group">
+                    <button type="button" class="active" data-value="expense">Expense</button>
+                    <button type="button" data-value="income">Income</button>
+                    <button type="button" data-value="vault">Vault</button>
                 </div>
+                <!-- Hidden input to store the selected value -->
+                <input type="hidden" id="category_type" name="category_type" value="expense">
             </div>
 
             <!-- Title -->
@@ -168,12 +167,12 @@
             <!-- Vault Action Toggle -->
             <div class="form-group" id="vault-action-toggle" style="display: none;">
                 <label>Vault Action</label>
-                <div class="type-switch">
-                    <input type="radio" id="vault-deposit" name="vault_action" value="deposit" checked>
-                    <label for="vault-deposit">Deposit (-)</label>
-                    <input type="radio" id="vault-withdraw" name="vault_action" value="withdraw">
-                    <label for="vault-withdraw">Withdraw (+)</label>
+                <div id="vault-action-toggle-group" class="toggle-group">
+                    <button type="button" class="active" data-value="deposit">Deposit (-)</button>
+                    <button type="button" data-value="withdraw">Withdraw (+)</button>
                 </div>
+                <!-- Hidden input to store the selected value -->
+                <input type="hidden" id="vault_action" name="vault_action" value="deposit">
             </div>
 
             <!-- Date and Amount -->
