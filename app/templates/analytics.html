@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - Coffee Finance</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .analytics-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            align-items: flex-end;
+            background: var(--card-white);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+        .analytics-controls .form-group {
+            margin-bottom: 0;
+        }
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+        .cashflow-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .cashflow-table th, .cashflow-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+        .cashflow-table th {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        .cashflow-table td.amount {
+            text-align: right;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+        .cashflow-row-total {
+            font-weight: bold;
+            background-color: rgba(0,0,0,0.02);
+        }
+        .positive { color: var(--accent-matcha); }
+        .negative { color: #D32F2F; }
+        
+        .chart-container {
+            background: var(--card-white);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            height: 350px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+<div id="sidebar-overlay" class="mobile-only"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="app-sidebar">
+    <div class="sidebar-header">Fin-Brew</div>
+    <nav class="sidebar-nav">
+        <a href="/" class="nav-link">Dashboard</a>
+        <a href="/#history" class="nav-link">History</a>
+        <a href="/analytics" class="nav-link active">Analytics</a>
+        <a href="/#settings" class="nav-link">Settings</a>
+    </nav>
+    <div class="sidebar-profile">
+        <div class="profile-section">
+            <div class="profile-avatar"></div>
+            <div class="profile-info">
+                <span class="username" id="profile-username">User</span>
+            </div>
+            <div class="profile-actions">
+                <button id="logout-btn" title="Logout">Logout</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="main-content" id="app-main-content">
+    <button id="menu-toggle" class="mobile-only">☰</button>
+    
+    <div class="page active">
+        <h1 style="margin-bottom: 1.5rem;">Cashflow Analytics</h1>
+        
+        <div class="analytics-controls">
+            <div class="form-group">
+                <label for="start-date">Start Date</label>
+                <input type="date" id="start-date">
+            </div>
+            <div class="form-group">
+                <label for="end-date">End Date</label>
+                <input type="date" id="end-date">
+            </div>
+            <div class="form-group">
+                <button id="calculate-btn" class="modal-submit-btn" style="width: auto; padding: 0.75rem 1.5rem;">Calculate</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="cashflowChart"></canvas>
+        </div>
+
+        <div class="analytics-grid">
+            <!-- Liquid Cashflow Card -->
+            <div class="card">
+                <div class="card-title">Liquid Cashflow</div>
+                <table class="cashflow-table">
+                    <tbody>
+                        <tr>
+                            <td>Opening Balance</td>
+                            <td class="amount" id="liquid-opening">€0.00</td>
+                        </tr>
+                        <tr>
+                            <td>Income (+)</td>
+                            <td class="amount positive" id="liquid-income">€0.00</td>
+                        </tr>
+                        <tr>
+                            <td>Expense (-)</td>
+                            <td class="amount negative" id="liquid-expense">€0.00</td>
+                        </tr>
+                        <tr>
+                            <td>Net Flow</td>
+                            <td class="amount" id="liquid-net-flow">€0.00</td>
+                        </tr>
+                        <tr class="cashflow-row-total">
+                            <td>Closing Balance</td>
+                            <td class="amount" id="liquid-closing">€0.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Vault Strategy Card -->
+            <div class="card">
+                <div class="card-title">Vault Strategy</div>
+                <table class="cashflow-table">
+                    <tbody>
+                        <tr>
+                            <td>Opening Balance</td>
+                            <td class="amount" id="vault-opening">€0.00</td>
+                        </tr>
+                        <tr>
+                            <td>Deposits (+)</td>
+                            <td class="amount positive" id="vault-deposit">€0.00</td>
+                        </tr>
+                        <tr>
+                            <td>Withdrawals (-)</td>
+                            <td class="amount negative" id="vault-withdraw">€0.00</td>
+                        </tr>
+                        <tr class="cashflow-row-total">
+                            <td>Closing Balance</td>
+                            <td class="amount" id="vault-closing">€0.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script type="module" src="/static/js/analytics.js"></script>
+</body>
+</html>

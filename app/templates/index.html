@@ -31,7 +31,9 @@
     <nav class="sidebar-nav">
         <a href="#dashboard" class="nav-link active" data-target="dashboard-page">Dashboard</a>
         <a href="#history" class="nav-link" data-target="history-page">History</a>
-        <a href="#settings" class="nav-link" data-target="settings-page">Settings</a>
+        <a href="#subscriptions" class="nav-link" data-target="subscriptions-page">Subscriptions</a>
+        <a href="#analytics" class="nav-link" data-target="analytics-page">Analytics</a>
+        <a href="#settings" class="nav-link" id="settings-link" data-target="settings-page">Settings</a>
         <button id="quick-add-btn" class="quick-add-btn">Quick Add</button>
     </nav>
     <div class="sidebar-profile">
@@ -108,11 +110,60 @@
         </div>
     </div>
 
+    <!-- Subscriptions Page -->
+    <div id="subscriptions-page" class="page" style="display: none;">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="card-title" style="margin:0;">Monthly Subscriptions</div>
+                <button id="add-sub-btn" class="quick-add-btn" style="width: auto; margin: 0; padding: 8px 16px;">+ Add New</button>
+            </div>
+            <div id="subscriptions-list" class="dashboard-grid" style="grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">
+                <!-- Subscription cards will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Page -->
+    <div id="analytics-page" class="page" style="display: none;">
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-title">Cashflow Analytics</div>
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:0.8rem;">Start Date</label>
+                    <input type="date" id="analytics-start">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:0.8rem;">End Date</label>
+                    <input type="date" id="analytics-end">
+                </div>
+                <button id="calc-analytics-btn" class="quick-add-btn" style="width: auto; margin:0; padding: 10px 20px;">Calculate</button>
+            </div>
+        </div>
+
+        <div class="card chart-card" style="margin-bottom: 20px; grid-column: span 3;">
+            <div class="chart-wrapper" style="height: 300px;">
+                <canvas id="cashflowChart"></canvas>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="card">
+                <div class="card-title">Liquid Cashflow</div>
+                <div id="analytics-liquid-stats"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Vault Strategy</div>
+                <div id="analytics-vault-stats"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Settings Page -->
     <div id="settings-page" class="page" style="display: none;">
         <div class="card">
             <div class="card-title">User Settings</div>
             <p><strong>Username:</strong> <span id="settings-username"></span></p>
+            <button id="edit-profile-btn" class="modal-submit-btn" style="width: auto; margin-top: 1rem;">Edit Profile</button>
         </div>
     </div>
 </main>
@@ -124,7 +175,7 @@
         <h2 id="modal-title">Add Transaction</h2>
         <form id="add-tx-form" novalidate>
             <input type="hidden" id="edit-tx-id">
-            
+
             <!-- Transaction Type -->
             <div class="form-group">
                 <label>Transaction Type</label>
@@ -191,6 +242,69 @@
             <!-- Submit Button -->
             <div class="form-group">
                 <button type="submit" class="modal-submit-btn">Save Transaction</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL for Add Subscription -->
+<div id="add-sub-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeModal('add-sub-modal')">&times;</button>
+        <h2>Add Subscription</h2>
+        <form id="add-sub-form">
+            <div class="form-group">
+                <label>Type</label>
+                <div id="sub-type-toggle-group" class="toggle-group">
+                    <button type="button" class="active" data-value="expense">Expense</button>
+                    <button type="button" data-value="income">Income</button>
+                </div>
+                <input type="hidden" id="sub_type" name="sub_type" value="expense">
+            </div>
+
+            <div class="form-group">
+                <label for="sub-title">Title</label>
+                <input type="text" id="sub-title" placeholder="e.g., Netflix" required>
+            </div>
+
+            <div class="form-group">
+                <label for="sub-amount">Amount (€)</label>
+                <input type="number" id="sub-amount" min="0" step="0.01" placeholder="0.00" required>
+            </div>
+
+            <div class="form-group">
+                <label>Category</label>
+                <div id="sub-category-tag-cloud" class="category-tag-cloud">
+                    <!-- JS will populate this -->
+                </div>
+                <input type="hidden" id="sub-category-id">
+            </div>
+
+            <div class="form-group">
+                <label for="sub-day">Day of Month (1-31)</label>
+                <input type="number" id="sub-day" min="1" max="31" required>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="modal-submit-btn">Save Subscription</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL for Profile Settings -->
+<div id="profile-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeModal('profile-modal')">&times;</button>
+        <h2>Edit Profile</h2>
+        <form id="profile-form">
+            <div class="form-group">
+                <label for="profile-username-input">Username</label>
+                <input type="text" id="profile-username-input" disabled>
+            </div>
+            <!-- Add more fields here if needed in the future -->
+            <div class="form-group">
+                <button type="submit" class="modal-submit-btn">Save Changes</button>
             </div>
         </form>
     </div>

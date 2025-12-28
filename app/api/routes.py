@@ -3,12 +3,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, date
 from sqlmodel import Session, select
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from app.core.database import get_session
 from app.core.models import Transaction, User, Category, CategoryType, RecurringTransaction
 from app.core.auth import create_access_token, get_current_user, get_password_hash, verify_password
 from app.api.utils import process_recurring_transactions
+from app.api.analytics import calculate_cashflow
 from datetime import timedelta
 
 # --- Routers ---
@@ -75,6 +76,28 @@ class RecurringTransactionRead(BaseModel):
     day_of_month: int
     last_run_date: Optional[date]
     is_active: bool
+
+class CashflowPeriod(BaseModel):
+    start: date
+    end: date
+
+class CashflowLiquid(BaseModel):
+    opening: int
+    income: int
+    expense: int
+    net_flow: int
+    closing: int
+
+class CashflowVault(BaseModel):
+    opening: int
+    deposit: int
+    withdraw: int
+    closing: int
+
+class CashflowResponse(BaseModel):
+    period: CashflowPeriod
+    liquid: CashflowLiquid
+    vault: CashflowVault
 
 # --- Authentication Endpoints ---
 @auth_router.post("/token")
@@ -299,3 +322,13 @@ def delete_recurring_transaction(
     session.delete(recurring_transaction)
     session.commit()
     return
+
+# --- Analytics Endpoints ---
+@router.get("/analytics/cashflow", response_model=CashflowResponse)
+def get_cashflow_analytics(
+    start_date: date,
+    end_date: date,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    return calculate_cashflow(session, current_user.id, start_date, end_date)

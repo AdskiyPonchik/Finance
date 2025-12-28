@@ -28,34 +28,54 @@ body {
     overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
+/* --- Animations --- */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-entry {
+    animation: fadeInUp 0.5s ease-out forwards;
+    opacity: 0; /* Start invisible */
+}
+
 /* --- Toast Notifications --- */
 #toast-container {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 2000;
+    z-index: 10000;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
 }
 
 .toast {
+    background: white;
     padding: 12px 20px;
     margin-bottom: 10px;
     border-radius: 8px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    animation: slideIn 0.3s forwards, fadeOut 0.5s ease-in 2.5s forwards;
+    border-left: 5px solid #6D4C41; /* Default */
     font-weight: 500;
-    animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 2.5s forwards;
 }
 
 .toast-success {
-    background-color: #C8E6C9;
-    color: #1B5E20;
+    border-left-color: #4CAF50;
+    color: #2E7D32;
 }
 
 .toast-error {
-    background-color: #FFCDD2;
-    color: #B71C1C;
+    border-left-color: #F44336;
+    color: #C62828;
 }
 
 @keyframes slideIn {
@@ -97,6 +117,10 @@ body {
     top: 15px;
     left: 15px;
     z-index: 1100; /* Above sidebar */
+    transition: all 0.2s ease;
+}
+#menu-toggle:active {
+    transform: scale(0.98);
 }
 
 #sidebar-overlay {
@@ -134,10 +158,15 @@ body {
     max-width: 380px;
     text-align: center;
     box-shadow: var(--shadow);
+    animation: fadeInUp 0.4s ease-out;
 }
 .login-container h2 { margin-bottom: 20px; color: var(--accent-latte); }
 .login-container input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 8px; }
-.login-container button { width: 100%; padding: 12px; background: var(--accent-latte); color: var(--text-light); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+.login-container button { 
+    width: 100%; padding: 12px; background: var(--accent-latte); color: var(--text-light); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; 
+    transition: all 0.2s ease;
+}
+.login-container button:active { transform: scale(0.98); }
 #error-msg { color: #D32F2F; margin-top: 15px; min-height: 20px; }
 
 /* --- Sidebar --- */
@@ -165,8 +194,9 @@ body {
 .profile-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-latte); margin-right: 10px; }
 .profile-info .username { font-weight: bold; }
 .profile-actions { display: flex; align-items: center; margin-left: auto; }
-.profile-actions button { background: none; border: none; color: #BDBDBD; cursor: pointer; font-size: 1.2rem; padding: 5px; }
+.profile-actions button { background: none; border: none; color: #BDBDBD; cursor: pointer; font-size: 1.2rem; padding: 5px; transition: all 0.2s ease; }
 .profile-actions button:hover { color: var(--text-light); }
+.profile-actions button:active { transform: scale(0.95); }
 
 .quick-add-btn {
     width: 100%;
@@ -179,11 +209,14 @@ body {
     font-weight: bold;
     cursor: pointer;
     margin-top: 20px;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
 }
 
 .quick-add-btn:hover {
     background-color: #5D4037; /* Darken latte color */
+}
+.quick-add-btn:active {
+    transform: scale(0.98);
 }
 
 
@@ -197,7 +230,17 @@ body {
     transition: margin-left 0.3s ease-in-out;
 }
 .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; }
-.card { background-color: var(--card-white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); }
+.card { 
+    background-color: var(--card-white); 
+    padding: 20px; 
+    border-radius: 12px; 
+    box-shadow: var(--shadow); 
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
 .card-title { font-size: 1rem; font-weight: 600; color: var(--accent-latte); margin-bottom: 15px; }
 
 /* Widget Specifics */
@@ -209,6 +252,8 @@ body {
 .transactions-table { width: 100%; border-collapse: collapse; }
 .transactions-table th, .transactions-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
 .transactions-table th { font-weight: 600; }
+.transactions-table tr { transition: background-color 0.2s; }
+.transactions-table tr:hover { background-color: rgba(0,0,0,0.02); }
 
 /* Chart Wrapper */
 .chart-wrapper {
@@ -221,12 +266,13 @@ body {
 .delete-btn, .edit-btn {
     background: none; border: none; cursor: pointer;
     font-size: 1rem; font-weight: bold; padding: 5px; border-radius: 4px;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
 }
 .delete-btn { color: #c0392b; margin-left: 5px; }
 .edit-btn { color: var(--accent-latte); }
 .delete-btn:hover { background-color: #FFEBEE; color: #D32F2F; }
 .edit-btn:hover { background-color: #EFEBE9; }
+.delete-btn:active, .edit-btn:active { transform: scale(0.95); }
 
 
 /* --- Modals & Forms --- */
@@ -234,6 +280,7 @@ body {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0, 0, 0, 0.5); display: none; justify-content: center;
     align-items: center; z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
 }
 .modal-content {
     background: var(--card-white);
@@ -242,11 +289,14 @@ body {
     width: 90%;
     max-width: 500px;
     position: relative;
+    animation: fadeInUp 0.4s ease-out;
 }
 .modal-close {
     position: absolute; top: 15px; right: 15px; background: none;
     border: none; font-size: 1.5rem; cursor: pointer;
+    transition: transform 0.2s;
 }
+.modal-close:hover { transform: scale(1.1); }
 
 .form-group {
     margin-bottom: 1.5rem;
@@ -389,7 +439,9 @@ body {
     border: none;
     border-radius: 6px;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
+#save-category-btn:active { transform: scale(0.98); }
 
 .modal-submit-btn {
     width: 100%;
@@ -401,11 +453,12 @@ body {
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
 }
 .modal-submit-btn:hover {
     background-color: #5D4037;
 }
+.modal-submit-btn:active { transform: scale(0.98); }
 
 
 /* ==========================================================================

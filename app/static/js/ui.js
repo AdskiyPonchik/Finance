@@ -2,9 +2,14 @@
  * UI MODULE
  * ========================================= */
 let expenseChart = null;
+let cashflowChart = null;
 
 // Utility to format currency
-const formatCurrency = (valueInCents) => {
+export const formatCurrency = (valueInCents) => {
+    // Check if value is a valid number
+    if (isNaN(valueInCents)) {
+        valueInCents = 0;
+    }
     return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(valueInCents / 100);
 };
 
@@ -30,26 +35,33 @@ export function renderTransactions(transactions) {
     const historyBody = document.getElementById('history-transactions-tbody');
     const dashboardBody = document.getElementById('dashboard-transactions-tbody');
     
-    historyBody.innerHTML = '';
-    dashboardBody.innerHTML = '';
+    if (historyBody) historyBody.innerHTML = '';
+    if (dashboardBody) dashboardBody.innerHTML = '';
 
     const sortedTx = transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     // Full history
-    sortedTx.forEach(tx => {
-        historyBody.appendChild(createTransactionRow(tx));
-    });
+    if (historyBody) {
+        sortedTx.forEach(tx => {
+            historyBody.appendChild(createTransactionRow(tx));
+        });
+    }
 
     // Recent 5 for dashboard
-    sortedTx.slice(0, 5).forEach(tx => {
-        dashboardBody.appendChild(createTransactionRow(tx));
-    });
+    if (dashboardBody) {
+        sortedTx.slice(0, 5).forEach(tx => {
+            dashboardBody.appendChild(createTransactionRow(tx));
+        });
+    }
 }
 
 function createTransactionRow(tx) {
     const tr = document.createElement('tr');
     const displayTitle = tx.title || tx.category_name || 'Untitled';
     const amountColor = tx.amount < 0 ? '#D32F2F' : '#2E7D32';
+
+    // Ensure opacity is 1 by default if animation fails or isn't applied immediately
+    tr.style.opacity = '1'; 
 
     tr.innerHTML = `
         <td>${displayTitle}</td>
@@ -64,16 +76,16 @@ function createTransactionRow(tx) {
     return tr;
 }
 
-export function renderCategoryTags(categories) {
-    const container = document.getElementById('category-tag-cloud');
+export function renderCategoryTags(categories, containerId = 'category-tag-cloud') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
     container.innerHTML = '';
     ['expense', 'income', 'vault'].forEach(type => {
         const filtered = categories.filter(c => c.type === type);
         filtered.forEach(cat => {
             const tag = document.createElement('div');
             tag.className = 'category-tag';
-            tag.textContent = cat.name; // This sets the text content, potentially overwriting children if appended later? No, textContent replaces all children.
-            // Better to create a text node for the name
             tag.textContent = ''; // Clear
             tag.appendChild(document.createTextNode(cat.name));
             
@@ -82,23 +94,69 @@ export function renderCategoryTags(categories) {
             tag.dataset.name = cat.name;
             tag.dataset.type = cat.type; // Add type for smart select
 
-            const deleteBtn = document.createElement('span');
-            deleteBtn.className = 'delete-cat-btn';
-            deleteBtn.dataset.id = cat.id;
-            deleteBtn.textContent = '×';
-            tag.appendChild(deleteBtn);
+            // Only add delete button for the main tag cloud, not for selection clouds
+            if (containerId === 'category-tag-cloud') {
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'delete-cat-btn';
+                deleteBtn.dataset.id = cat.id;
+                deleteBtn.textContent = '×';
+                tag.appendChild(deleteBtn);
+            }
 
             container.appendChild(tag);
         });
     });
 }
 
+export function renderSubscriptions(subs, categories) {
+    const container = document.getElementById('subscriptions-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (subs.length === 0) {
+        container.innerHTML = '<p style="grid-column: span 3; text-align: center; color: #757575;">No active subscriptions found.</p>';
+        return;
+    }
+
+    subs.forEach(sub => {
+        const card = document.createElement('div');
+        card.className = 'card animate-entry';
+        
+        const category = categories.find(c => c.id === sub.category_id);
+        const categoryName = category ? category.name : 'Unknown';
+        const categoryColor = category ? category.color : '#ccc';
+        const amountColor = sub.amount < 0 ? '#D32F2F' : '#2E7D32';
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div style="font-weight: bold; font-size: 1.1rem;">${sub.title}</div>
+                <span style="background-color: ${categoryColor}; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">${categoryName}</span>
+            </div>
+            <div style="font-size: 1.5rem; font-weight: bold; color: ${amountColor}; margin-bottom: 10px;">
+                ${formatCurrency(sub.amount)}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; color: #757575; font-size: 0.9rem;">
+                <span>Repeats on day: <strong>${sub.day_of_month}</strong></span>
+                <button class="delete-sub-btn" data-id="${sub.id}" style="background: none; border: none; cursor: pointer; color: #D32F2F; font-size: 1.2rem;">
+                    <i class='bx bx-trash'></i> &times;
+                </button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
 export function renderUserInfo(user) {
-    document.getElementById('profile-username').textContent = user.username;
-    document.getElementById('settings-username').textContent = user.username;
+    const profileUsername = document.getElementById('profile-username');
+    const settingsUsername = document.getElementById('settings-username');
+    if (profileUsername) profileUsername.textContent = user.username;
+    if (settingsUsername) settingsUsername.textContent = user.username;
 }
 
 export function renderChart(transactions, categories) {
+    const canvas = document.getElementById('expenseChart');
+    if (!canvas) return;
+
     const expenseData = transactions
         .filter(tx => tx.amount < 0)
         .reduce((acc, tx) => {
@@ -115,7 +173,7 @@ export function renderChart(transactions, categories) {
         return cat ? cat.color : '#CCCCCC';
     });
 
-    const ctx = document.getElementById('expenseChart').getContext('2d');
+    const ctx = canvas.getContext('2d');
     if (expenseChart) {
         expenseChart.destroy();
     }
@@ -149,10 +207,78 @@ export function renderChart(transactions, categories) {
     });
 }
 
-export function selectCategory(tagElement) {
-    document.querySelectorAll('.category-tag').forEach(t => t.classList.remove('selected'));
+export function renderAnalytics(data) {
+    const liquidStats = document.getElementById('analytics-liquid-stats');
+    const vaultStats = document.getElementById('analytics-vault-stats');
+
+    liquidStats.innerHTML = `
+        <table class="cashflow-table">
+            <tr><td>Opening Balance</td><td class="amount">${formatCurrency(data.liquid.opening)}</td></tr>
+            <tr><td>Income (+)</td><td class="amount positive">${formatCurrency(data.liquid.income)}</td></tr>
+            <tr><td>Expense (-)</td><td class="amount negative">${formatCurrency(data.liquid.expense)}</td></tr>
+            <tr><td>Net Flow</td><td class="amount">${formatCurrency(data.liquid.net_flow)}</td></tr>
+            <tr class="cashflow-row-total"><td>Closing Balance</td><td class="amount">${formatCurrency(data.liquid.closing)}</td></tr>
+        </table>
+    `;
+
+    vaultStats.innerHTML = `
+        <table class="cashflow-table">
+            <tr><td>Opening Balance</td><td class="amount">${formatCurrency(data.vault.opening)}</td></tr>
+            <tr><td>Deposits (+)</td><td class="amount positive">${formatCurrency(data.vault.deposit)}</td></tr>
+            <tr><td>Withdrawals (-)</td><td class="amount negative">${formatCurrency(data.vault.withdraw)}</td></tr>
+            <tr class="cashflow-row-total"><td>Closing Balance</td><td class="amount">${formatCurrency(data.vault.closing)}</td></tr>
+        </table>
+    `;
+
+    const ctx = document.getElementById('cashflowChart').getContext('2d');
+    if (cashflowChart) {
+        cashflowChart.destroy();
+    }
+
+    const income = data.liquid.income / 100;
+    const expense = Math.abs(data.liquid.expense / 100);
+    const vaultIn = data.vault.deposit / 100;
+    const vaultOut = Math.abs(data.vault.withdraw / 100);
+
+    cashflowChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Income', 'Expense', 'Vault In', 'Vault Out'],
+            datasets: [{
+                label: 'Amount (€)',
+                data: [income, expense, vaultIn, vaultOut],
+                backgroundColor: [
+                    'rgba(46, 125, 50, 0.7)',
+                    'rgba(211, 47, 47, 0.7)',
+                    'rgba(109, 76, 65, 0.7)',
+                    'rgba(25, 118, 210, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(46, 125, 50, 1)',
+                    'rgba(211, 47, 47, 1)',
+                    'rgba(109, 76, 65, 1)',
+                    'rgba(25, 118, 210, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+export function selectCategory(tagElement, inputId = 'tx-category-name-selected') {
+    // Only remove 'selected' from siblings within the same container
+    const container = tagElement.parentElement;
+    container.querySelectorAll('.category-tag').forEach(t => t.classList.remove('selected'));
+    
     tagElement.classList.add('selected');
-    document.getElementById('tx-category-name-selected').value = tagElement.dataset.id;
+    const input = document.getElementById(inputId);
+    if (input) input.value = tagElement.dataset.id;
 }
 
 export function openModal(modalId) {
@@ -161,6 +287,11 @@ export function openModal(modalId) {
 
 export function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+}
+
+export function openProfileModal(user) {
+    document.getElementById('profile-username-input').value = user.username;
+    openModal('profile-modal');
 }
 
 export function updateToggleState(groupId, selectedValue) {
@@ -190,4 +321,41 @@ export function updateToggleState(groupId, selectedValue) {
             vaultActionToggle.style.display = selectedValue === 'vault' ? 'block' : 'none';
         }
     }
+}
+
+export function animateDashboard() {
+    // Select elements to animate
+    const elements = [
+        ...document.querySelectorAll('.card-title'),
+        ...document.querySelectorAll('.card'),
+        ...document.querySelectorAll('.chart-wrapper'),
+        ...document.querySelectorAll('tbody tr')
+    ];
+
+    // Reset animations first (optional, but good for re-runs)
+    elements.forEach(el => {
+        el.classList.remove('animate-entry');
+        el.style.opacity = '0'; // Ensure hidden before animation starts
+        void el.offsetWidth; // Trigger reflow
+    });
+
+    // Apply animation with stagger
+    let delay = 0;
+    elements.forEach((el, index) => {
+        el.classList.add('animate-entry');
+        
+        // Custom stagger logic
+        if (el.classList.contains('card-title')) {
+            el.style.animationDelay = '0ms';
+        } else if (el.classList.contains('card')) {
+            delay += 50;
+            el.style.animationDelay = `${100 + delay}ms`;
+        } else if (el.tagName === 'TR') {
+            // Only stagger first 10 rows to avoid massive delay on long lists
+            const rowDelay = index < 15 ? index * 30 : 15 * 30; 
+            el.style.animationDelay = `${400 + rowDelay}ms`;
+        } else {
+            el.style.animationDelay = '200ms';
+        }
+    });
 }

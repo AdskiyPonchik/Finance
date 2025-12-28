@@ -3,7 +3,7 @@
  * ========================================= */
 const apiBase = '/api';
 
-function getAuthHeaders() {
+export function getAuthHeaders() {
     const token = localStorage.getItem('token');
     return {
         'Authorization': `Bearer ${token}`,
@@ -67,6 +67,19 @@ export async function fetchUser() {
     return handleResponse(res);
 }
 
+export async function fetchUserProfile() {
+    return fetchUser();
+}
+
+export async function updateUserProfile(data) {
+    const res = await fetch(`${apiBase}/users/me`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+}
+
 export async function saveTransactionApi(data, id = null) {
     const method = id ? 'PUT' : 'POST';
     const endpoint = id ? `/transactions/${id}` : '/transactions/';
@@ -100,6 +113,35 @@ export async function deleteCategoryApi(id) {
     const res = await fetch(`${apiBase}/categories/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
+    });
+    return handleResponse(res);
+}
+
+export async function fetchRecurring() {
+    const res = await fetch(`${apiBase}/recurring/`, { headers: getAuthHeaders() });
+    return handleResponse(res);
+}
+
+export async function createRecurring(data) {
+    const res = await fetch(`${apiBase}/recurring/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+}
+
+export async function deleteRecurring(id) {
+    const res = await fetch(`${apiBase}/recurring/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+    return handleResponse(res);
+}
+
+export async function fetchCashflow(startDate, endDate) {
+    const res = await fetch(`${apiBase}/analytics/cashflow?start_date=${startDate}&end_date=${endDate}`, {
+        headers: getAuthHeaders()
     });
     return handleResponse(res);
 }

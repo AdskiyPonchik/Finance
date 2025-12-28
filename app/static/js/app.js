@@ -7,10 +7,16 @@ import {
     fetchTransactions, 
     fetchCategories, 
     fetchUser, 
+    fetchUserProfile,
+    updateUserProfile,
     saveTransactionApi, 
     deleteTransactionApi, 
     createCategoryApi,
-    deleteCategoryApi
+    deleteCategoryApi,
+    fetchRecurring,
+    createRecurring,
+    deleteRecurring,
+    fetchCashflow
 } from './api.js';
 
 import { 
@@ -18,12 +24,16 @@ import {
     updateBalanceCards, 
     renderTransactions, 
     renderCategoryTags, 
+    renderSubscriptions,
+    renderAnalytics,
     renderUserInfo, 
     renderChart, 
     selectCategory, 
     openModal, 
     closeModal,
-    updateToggleState
+    openProfileModal,
+    updateToggleState,
+    animateDashboard
 } from './ui.js';
 
 let currentTransactionId = null;
@@ -39,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appSidebar.style.display = 'flex';
         mainContent.style.display = 'block';
         loadDashboard();
+        animateDashboard(); // Animate on initial load
     } else {
         loginOverlay.style.display = 'flex';
         appSidebar.style.display = 'none';
@@ -63,9 +74,38 @@ async function loadDashboard() {
         renderChart(transactions, categories);
         renderUserInfo(user);
         
+        animateDashboard(); // Animate after data refresh
+        
     } catch (error) {
         showToast(error.message, 'error');
         console.error("Dashboard Load Error:", error);
+    }
+}
+
+async function loadSubscriptions() {
+    try {
+        const [subs, categories] = await Promise.all([
+            fetchRecurring(),
+            fetchCategories()
+        ]);
+        renderSubscriptions(subs, categories);
+    } catch (error) {
+        showToast("Failed to load subscriptions.", "error");
+    }
+}
+
+async function loadAnalytics() {
+    const startDate = document.getElementById('analytics-start').value;
+    const endDate = document.getElementById('analytics-end').value;
+    if (!startDate || !endDate) {
+        showToast("Please select a start and end date.", "error");
+        return;
+    }
+    try {
+        const data = await fetchCashflow(startDate, endDate);
+        renderAnalytics(data);
+    } catch (error) {
+        showToast("Failed to load analytics data.", "error");
     }
 }
 
@@ -99,88 +139,130 @@ function attachEventListeners() {
                 document.getElementById('app-sidebar').classList.remove('active');
                 document.getElementById('sidebar-overlay').classList.remove('show');
             }
+            
+            if (targetId === 'subscriptions-page') {
+                loadSubscriptions();
+            } else if (targetId === 'analytics-page') {
+                const today = new Date();
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+                document.getElementById('analytics-start').value = firstDay;
+                document.getElementById('analytics-end').value = lastDay;
+                loadAnalytics();
+            }
+            
+            // Re-trigger animation when switching tabs
+            animateDashboard();
         });
     });
 
     // --- Mobile Sidebar Toggle ---
-    document.getElementById('menu-toggle').addEventListener('click', () => {
-        document.getElementById('app-sidebar').classList.add('active');
-        document.getElementById('sidebar-overlay').classList.add('show');
-    });
+    const menuToggle = document.getElementById('menu-toggle');
+    if (menuToggle) {
+        menuToggle.addEventListener('click', () => {
+            document.getElementById('app-sidebar').classList.add('active');
+            document.getElementById('sidebar-overlay').classList.add('show');
+        });
+    }
 
-    document.getElementById('sidebar-overlay').addEventListener('click', () => {
-        document.getElementById('app-sidebar').classList.remove('active');
-        document.getElementById('sidebar-overlay').classList.remove('show');
-    });
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            document.getElementById('app-sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('show');
+        });
+    }
 
     // --- Logout ---
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('token');
-        location.reload();
-    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            location.reload();
+        });
+    }
 
     // --- Modal ---
-    document.getElementById('quick-add-btn').addEventListener('click', openAddModal);
-    document.querySelector('.modal-close').addEventListener('click', () => closeModal('add-tx-modal'));
+    const quickAddBtn = document.getElementById('quick-add-btn');
+    if (quickAddBtn) {
+        quickAddBtn.addEventListener('click', openAddModal);
+    }
+    
+    const modalCloseBtn = document.querySelector('.modal-close');
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', () => closeModal('add-tx-modal'));
+    }
     
     // --- Transaction Actions (Edit/Delete) ---
-    document.querySelector('main').addEventListener('click', async (e) => {
-        if (e.target.classList.contains('delete-btn')) {
-            const txId = e.target.dataset.txId;
-            if (confirm('Are you sure you want to delete this transaction?')) {
-                try {
-                    await deleteTransactionApi(txId);
-                    showToast('Transaction deleted.', 'success');
-                    await loadDashboard();
-                } catch (error) {
-                    showToast(`Delete failed: ${error.message}`, 'error');
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+        mainElement.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                const txId = e.target.dataset.txId;
+                if (confirm('Are you sure you want to delete this transaction?')) {
+                    try {
+                        await deleteTransactionApi(txId);
+                        showToast('Transaction deleted.', 'success');
+                        await loadDashboard();
+                    } catch (error) {
+                        showToast(`Delete failed: ${error.message}`, 'error');
+                    }
                 }
             }
-        }
-        if (e.target.classList.contains('edit-btn')) {
-            const txId = e.target.dataset.txId;
-            const allTx = await fetchTransactions();
-            const tx = allTx.find(t => t.id == txId);
-            openEditModal(tx);
-        }
-    });
+            if (e.target.classList.contains('edit-btn')) {
+                const txId = e.target.dataset.txId;
+                const allTx = await fetchTransactions();
+                const tx = allTx.find(t => t.id == txId);
+                openEditModal(tx);
+            }
+        });
+    }
 
     // --- Form & Category Logic ---
-    document.getElementById('add-tx-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        saveTransaction();
-    });
+    const addTxForm = document.getElementById('add-tx-form');
+    if (addTxForm) {
+        addTxForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            saveTransaction();
+        });
+    }
 
-    document.getElementById('category-tag-cloud').addEventListener('click', async (e) => {
-        // Handle Delete
-        if (e.target.classList.contains('delete-cat-btn')) {
-            e.stopPropagation();
-            const catId = e.target.dataset.id;
-            if (confirm('Delete this category?')) {
-                try {
-                    await deleteCategoryApi(catId);
-                    showToast('Category deleted.', 'success');
-                    const categories = await fetchCategories();
-                    renderCategoryTags(categories);
-                } catch (error) {
-                    showToast(`Delete failed: ${error.message}`, 'error');
+    const categoryTagCloud = document.getElementById('category-tag-cloud');
+    if (categoryTagCloud) {
+        categoryTagCloud.addEventListener('click', async (e) => {
+            // Handle Delete
+            if (e.target.classList.contains('delete-cat-btn')) {
+                e.stopPropagation();
+                const catId = e.target.dataset.id;
+                if (confirm('Delete this category?')) {
+                    try {
+                        await deleteCategoryApi(catId);
+                        showToast('Category deleted.', 'success');
+                        const categories = await fetchCategories();
+                        renderCategoryTags(categories);
+                    } catch (error) {
+                        showToast(`Delete failed: ${error.message}`, 'error');
+                    }
+                }
+                return;
+            }
+
+            // Handle Select
+            const tag = e.target.closest('.category-tag');
+            if (tag) {
+                selectCategory(tag);
+                const type = tag.dataset.type;
+                if (type) {
+                    updateToggleState('tx-type-toggle-group', type);
                 }
             }
-            return;
-        }
+        });
+    }
 
-        // Handle Select
-        const tag = e.target.closest('.category-tag');
-        if (tag) {
-            selectCategory(tag);
-            const type = tag.dataset.type;
-            if (type) {
-                updateToggleState('tx-type-toggle-group', type);
-            }
-        }
-    });
-
-    document.getElementById('save-category-btn').addEventListener('click', saveNewCategory);
+    const saveCategoryBtn = document.getElementById('save-category-btn');
+    if (saveCategoryBtn) {
+        saveCategoryBtn.addEventListener('click', saveNewCategory);
+    }
 
     // --- Toggle Group Logic ---
     document.querySelectorAll('.toggle-group').forEach(group => {
@@ -192,6 +274,124 @@ function attachEventListeners() {
             }
         });
     });
+
+    // --- Profile Settings Logic ---
+    const settingsLink = document.getElementById('settings-link');
+    if (settingsLink) {
+        settingsLink.addEventListener('click', async (e) => {
+            // The default behavior is already handled by the sidebar navigation logic (switching tabs)
+            // But we might want to refresh user data when entering settings
+            try {
+                const user = await fetchUserProfile();
+                renderUserInfo(user);
+            } catch (error) {
+                console.error("Failed to fetch user profile:", error);
+            }
+        });
+    }
+
+    const editProfileBtn = document.getElementById('edit-profile-btn');
+    if (editProfileBtn) {
+        editProfileBtn.addEventListener('click', async () => {
+            try {
+                const user = await fetchUserProfile();
+                openProfileModal(user);
+            } catch (error) {
+                showToast("Failed to load profile data", "error");
+            }
+        });
+    }
+
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showToast("Profile update not yet implemented on backend.", "info");
+            closeModal('profile-modal');
+        });
+    }
+
+    // --- Subscriptions Logic ---
+    const addSubBtn = document.getElementById('add-sub-btn');
+    if (addSubBtn) {
+        addSubBtn.addEventListener('click', async () => {
+            const categories = await fetchCategories();
+            renderCategoryTags(categories, 'sub-category-tag-cloud');
+            openModal('add-sub-modal');
+        });
+    }
+
+    const addSubForm = document.getElementById('add-sub-form');
+    if (addSubForm) {
+        addSubForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('sub-title').value;
+            const amount = parseFloat(document.getElementById('sub-amount').value);
+            const categoryId = document.getElementById('sub-category-id').value;
+            const dayOfMonth = parseInt(document.getElementById('sub-day').value);
+            const type = document.getElementById('sub_type').value;
+
+            if (!title || !amount || !categoryId || !dayOfMonth) {
+                showToast("All fields are required.", "error");
+                return;
+            }
+            if (dayOfMonth < 1 || dayOfMonth > 31) {
+                showToast("Day must be between 1 and 31.", "error");
+                return;
+            }
+
+            let finalAmount = Math.round(amount * 100);
+            if (type === 'expense') {
+                finalAmount = -finalAmount;
+            }
+
+            const data = { title, amount: finalAmount, category_id: parseInt(categoryId), day_of_month: dayOfMonth, type };
+            
+            try {
+                await createRecurring(data);
+                showToast("Subscription added!", "success");
+                closeModal('add-sub-modal');
+                loadSubscriptions();
+            } catch (error) {
+                showToast(`Error: ${error.message}`, "error");
+            }
+        });
+    }
+
+    const subCategoryCloud = document.getElementById('sub-category-tag-cloud');
+    if (subCategoryCloud) {
+        subCategoryCloud.addEventListener('click', (e) => {
+            const tag = e.target.closest('.category-tag');
+            if (tag) {
+                selectCategory(tag, 'sub-category-id');
+            }
+        });
+    }
+
+    const subList = document.getElementById('subscriptions-list');
+    if (subList) {
+        subList.addEventListener('click', async (e) => {
+            const deleteBtn = e.target.closest('.delete-sub-btn');
+            if (deleteBtn) {
+                const subId = deleteBtn.dataset.id;
+                if (confirm('Are you sure you want to delete this subscription?')) {
+                    try {
+                        await deleteRecurring(subId);
+                        showToast('Subscription deleted.', 'success');
+                        loadSubscriptions();
+                    } catch (error) {
+                        showToast(`Delete failed: ${error.message}`, 'error');
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Analytics Logic ---
+    const calcAnalyticsBtn = document.getElementById('calc-analytics-btn');
+    if (calcAnalyticsBtn) {
+        calcAnalyticsBtn.addEventListener('click', loadAnalytics);
+    }
 }
 
 function openAddModal() {
