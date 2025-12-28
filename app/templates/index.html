@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Finance Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div id="toast-container"></div>
+<div id="sidebar-overlay" class="mobile-only"></div>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay">
+    <div class="login-container">
+        <h2>Welcome Back</h2>
+        <form id="login-form">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+            <div id="error-msg"></div>
+        </form>
+    </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="app-sidebar" style="display:none;">
+    <div class="sidebar-header">Fin-Brew</div>
+    <nav class="sidebar-nav">
+        <a href="#dashboard" class="nav-link active" data-target="dashboard-page">Dashboard</a>
+        <a href="#history" class="nav-link" data-target="history-page">History</a>
+        <a href="#settings" class="nav-link" data-target="settings-page">Settings</a>
+        <button id="quick-add-btn" class="quick-add-btn">Quick Add</button>
+    </nav>
+    <div class="sidebar-profile">
+        <div class="profile-section">
+            <div class="profile-avatar"></div>
+            <div class="profile-info">
+                <span class="username" id="profile-username">User</span>
+            </div>
+            <div class="profile-actions">
+                <button id="logout-btn" title="Logout">Logout</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="main-content" id="app-main-content" style="display:none;">
+    <button id="menu-toggle" class="mobile-only">☰</button>
+    <!-- Dashboard Page -->
+    <div id="dashboard-page" class="page active">
+        <div class="dashboard-grid">
+            <div class="card kpi-card">
+                <div class="card-title">Liquid Balance</div>
+                <div id="liquid-balance" class="value">€0.00</div>
+            </div>
+            <div class="card kpi-card">
+                <div class="card-title">Vault Balance</div>
+                <div id="staking-balance" class="value">€0.00</div>
+            </div>
+            <div class="card kpi-card">
+                <div class="card-title">Net Worth</div>
+                <div id="net-worth-balance" class="value">€0.00</div>
+            </div>
+            <div class="card chart-card">
+                <div class="card-title">Expense Breakdown</div>
+                <div class="chart-wrapper">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+            <div class="card transactions-card" style="grid-column: span 2;">
+                <div class="card-title">Recent Transactions</div>
+                <table class="transactions-table">
+                    <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Date</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="dashboard-transactions-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Page -->
+    <div id="history-page" class="page" style="display: none;">
+        <div class="card">
+            <div class="card-title">Full Transaction History</div>
+            <table class="transactions-table">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Date</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="history-transactions-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="settings-page" class="page" style="display: none;">
+        <div class="card">
+            <div class="card-title">User Settings</div>
+            <p><strong>Username:</strong> <span id="settings-username"></span></p>
+        </div>
+    </div>
+</main>
+
+<!-- MODAL for Add/Edit Transaction -->
+<div id="add-tx-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeModal('add-tx-modal')">&times;</button>
+        <h2 id="modal-title">Add Transaction</h2>
+        <form id="add-tx-form" novalidate>
+            <input type="hidden" id="edit-tx-id">
+            
+            <!-- Transaction Type -->
+            <div class="form-group">
+                <label>Transaction Type</label>
+                <div id="tx-type-switch" class="type-switch">
+                    <input type="radio" id="type-expense" name="category_type" value="expense" checked>
+                    <label for="type-expense">Expense</label>
+                    <input type="radio" id="type-income" name="category_type" value="income">
+                    <label for="type-income">Income</label>
+                    <input type="radio" id="type-vault" name="category_type" value="vault">
+                    <label for="type-vault">Vault</label>
+                </div>
+            </div>
+
+            <!-- Title -->
+            <div class="form-group">
+                <label for="tx-title">Title (Optional)</label>
+                <input type="text" id="tx-title" placeholder="e.g., Groceries from Rewe">
+            </div>
+
+            <!-- Category Management -->
+            <div class="form-group">
+                <label>Category</label>
+                <div id="category-tag-cloud" class="category-tag-cloud">
+                    <!-- JS will populate this -->
+                </div>
+                <input type="hidden" id="tx-category-name-selected">
+            </div>
+
+            <!-- Create New Category Section -->
+            <div class="create-category-section">
+                <details>
+                    <summary>Create New Category</summary>
+                    <div class="create-category-form">
+                        <input type="text" id="new-category-name" placeholder="New Category Name">
+                        <input type="color" id="new-category-color" value="#5e35b1">
+                        <button type="button" id="save-category-btn">Save Tag</button>
+                    </div>
+                </details>
+            </div>
+
+            <!-- Vault Action Toggle -->
+            <div class="form-group" id="vault-action-toggle" style="display: none;">
+                <label>Vault Action</label>
+                <div class="type-switch">
+                    <input type="radio" id="vault-deposit" name="vault_action" value="deposit" checked>
+                    <label for="vault-deposit">Deposit (-)</label>
+                    <input type="radio" id="vault-withdraw" name="vault_action" value="withdraw">
+                    <label for="vault-withdraw">Withdraw (+)</label>
+                </div>
+            </div>
+
+            <!-- Date and Amount -->
+            <div class="form-group">
+                <label for="tx-amount">Amount (€)</label>
+                <div class="amount-input-wrapper">
+                    <input type="number" id="tx-amount" min="0" step="0.01" placeholder="0.00">
+                    <span id="amount-feedback" class="amount-feedback"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="tx-date">Date</label>
+                <input type="date" id="tx-date">
+            </div>
+
+            <!-- Submit Button -->
+            <div class="form-group">
+                <button type="submit" class="modal-submit-btn">Save Transaction</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+</body>
+</html>
