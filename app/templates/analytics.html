@@ -7,47 +7,118 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* ---                                                          Analytics Controls (Top Block) --- */
         .analytics-controls {
             display: flex;
-            gap: 1rem;
+            justify-content: center; /* Center content */
+            align-items: center;
+            gap: 1.5rem;
             margin-bottom: 2rem;
-            align-items: flex-end;
             background: var(--card-white);
             padding: 1.5rem;
             border-radius: 12px;
-            box-shadow: var(--shadow);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Light shadow */
+            flex-wrap: wrap;
         }
+
         .analytics-controls .form-group {
             margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
         }
+
+        .analytics-controls input[type="date"] {
+            border: none;
+            background-color: #FAFAFA; /* Off-white */
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-family: inherit;
+            color: var(--text-dark);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .analytics-controls input[type="date"]:focus {
+            outline: 2px solid var(--accent-latte);
+            background-color: #fff;
+        }
+
+        #calculate-btn {
+            background-color: var(--sidebar-espresso); /* Dark brown */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            height: 40px; /* Match input height roughly */
+            margin-top: auto; /* Align with inputs if labels exist */
+            align-self: flex-end;
+        }
+
+        #calculate-btn:hover {
+            background-color: #5D4037; /* Lighter brown */
+        }
+
+        #calculate-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* --- Grid Layout --- */
         .analytics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 1.5rem;
         }
-        .cashflow-table {
-            width: 100%;
-            border-collapse: collapse;
+
+        /* --- Card Styles --- */
+        .card {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Light shadow */
+        }
+
+        /* --- List / Row Styles (Replacing Table) --- */
+        .cashflow-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             margin-top: 1rem;
         }
-        .cashflow-table th, .cashflow-table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-            text-align: left;
+
+        .cashflow-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white */
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 6px;
+            padding: 10px 15px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            transition: transform 0.2s ease;
         }
-        .cashflow-table th {
-            font-weight: 600;
-            color: var(--text-dark);
+
+        .cashflow-row:hover {
+            transform: translateX(2px);
+            background-color: #fff;
         }
-        .cashflow-table td.amount {
-            text-align: right;
-            font-family: monospace;
-            font-size: 1.1rem;
-        }
-        .cashflow-row-total {
+
+        .cashflow-row.total {
+            background-color: var(--bg-cream); /* Light beige for totals */
             font-weight: bold;
-            background-color: rgba(0,0,0,0.02);
+            border-color: rgba(0,0,0,0.1);
         }
+
+        .row-label {
+            font-family: sans-serif;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .row-amount {
+            font-family: monospace;
+            font-weight: bold;
+            text-align: right;
+        }
+
         .positive { color: var(--accent-matcha); }
         .negative { color: #D32F2F; }
         
@@ -55,7 +126,7 @@
             background: var(--card-white);
             padding: 20px;
             border-radius: 12px;
-            box-shadow: var(--shadow);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             height: 350px;
             margin-bottom: 20px;
             position: relative;
@@ -106,7 +177,7 @@
                 <input type="date" id="end-date">
             </div>
             <div class="form-group">
-                <button id="calculate-btn" class="modal-submit-btn" style="width: auto; padding: 0.75rem 1.5rem;">Calculate</button>
+                <button id="calculate-btn">Calculate</button>
             </div>
         </div>
 
@@ -118,55 +189,51 @@
             <!-- Liquid Cashflow Card -->
             <div class="card">
                 <div class="card-title">Liquid Cashflow</div>
-                <table class="cashflow-table">
-                    <tbody>
-                        <tr>
-                            <td>Opening Balance</td>
-                            <td class="amount" id="liquid-opening">€0.00</td>
-                        </tr>
-                        <tr>
-                            <td>Income (+)</td>
-                            <td class="amount positive" id="liquid-income">€0.00</td>
-                        </tr>
-                        <tr>
-                            <td>Expense (-)</td>
-                            <td class="amount negative" id="liquid-expense">€0.00</td>
-                        </tr>
-                        <tr>
-                            <td>Net Flow</td>
-                            <td class="amount" id="liquid-net-flow">€0.00</td>
-                        </tr>
-                        <tr class="cashflow-row-total">
-                            <td>Closing Balance</td>
-                            <td class="amount" id="liquid-closing">€0.00</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="cashflow-list">
+                    <div class="cashflow-row">
+                        <span class="row-label">Opening Balance</span>
+                        <span class="row-amount" id="liquid-opening">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Income (+)</span>
+                        <span class="row-amount positive" id="liquid-income">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Expense (-)</span>
+                        <span class="row-amount negative" id="liquid-expense">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Net Flow</span>
+                        <span class="row-amount" id="liquid-net-flow">€0.00</span>
+                    </div>
+                    <div class="cashflow-row total">
+                        <span class="row-label">Closing Balance</span>
+                        <span class="row-amount" id="liquid-closing">€0.00</span>
+                    </div>
+                </div>
             </div>
 
             <!-- Vault Strategy Card -->
             <div class="card">
                 <div class="card-title">Vault Strategy</div>
-                <table class="cashflow-table">
-                    <tbody>
-                        <tr>
-                            <td>Opening Balance</td>
-                            <td class="amount" id="vault-opening">€0.00</td>
-                        </tr>
-                        <tr>
-                            <td>Deposits (+)</td>
-                            <td class="amount positive" id="vault-deposit">€0.00</td>
-                        </tr>
-                        <tr>
-                            <td>Withdrawals (-)</td>
-                            <td class="amount negative" id="vault-withdraw">€0.00</td>
-                        </tr>
-                        <tr class="cashflow-row-total">
-                            <td>Closing Balance</td>
-                            <td class="amount" id="vault-closing">€0.00</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="cashflow-list">
+                    <div class="cashflow-row">
+                        <span class="row-label">Opening Balance</span>
+                        <span class="row-amount" id="vault-opening">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Deposits (+)</span>
+                        <span class="row-amount positive" id="vault-deposit">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Withdrawals (-)</span>
+                        <span class="row-amount negative" id="vault-withdraw">€0.00</span>
+                    </div>
+                    <div class="cashflow-row total">
+                        <span class="row-label">Closing Balance</span>
+                        <span class="row-amount" id="vault-closing">€0.00</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

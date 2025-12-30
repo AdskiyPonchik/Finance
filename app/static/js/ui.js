@@ -22,7 +22,7 @@ export function showToast(message, type = 'success') {
 
     setTimeout(() => {
         toast.remove();
-    }, 3000);
+    }, 1000);
 }
 
 export function updateBalanceCards(balance) {
