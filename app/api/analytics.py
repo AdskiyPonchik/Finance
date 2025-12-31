@@ -93,3 +93,17 @@ def calculate_cashflow(session: Session, user_id: int, start_date: date, end_dat
             "closing": vault_closing
         }
     }
+
+def get_heatmap_data(session: Session, user_id: int) -> Dict[str, int]:
+    statement = (
+        select(func.date(Transaction.date), func.count(Transaction.id))
+        .where(Transaction.owner_id == user_id)
+        .group_by(func.date(Transaction.date))
+    )
+    results = session.exec(statement).all()
+    
+    heatmap_data = {}
+    for date_str, count in results:
+        heatmap_data[date_str] = count
+        
+    return heatmap_data

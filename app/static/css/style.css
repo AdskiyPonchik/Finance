@@ -527,3 +527,155 @@ body {
     opacity: 1.0;
     color: #c0392b;
 }
+
+/* --- Analytics Module --- */
+.analytics-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+.analytics-controls .form-group {
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+.analytics-controls input[type="date"] {
+    background-color: #FAFAFA;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+}
+#calc-analytics-btn {
+    background-color: var(--sidebar-espresso);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-weight: 600;
+    cursor: pointer;
+    height: 40px;
+    transition: background 0.2s;
+}
+#calc-analytics-btn:hover {
+    background-color: #5D4037;
+}
+
+/* Analytics Grid & Rows */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+.cashflow-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 1rem;
+}
+.cashflow-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 6px;
+    padding: 10px 15px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.cashflow-row:hover {
+    background-color: #fff;
+    transform: translateX(2px);
+    transition: transform 0.2s;
+}
+.cashflow-row.total {
+    background-color: var(--bg-cream);
+    font-weight: bold;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+.row-label { font-weight: 500; color: var(--text-dark); }
+.row-amount { font-family: monospace; font-weight: bold; }
+.row-amount.positive { color: var(--accent-matcha); }
+.row-amount.negative { color: #D32F2F; }
+.chart-container {
+    background: var(--card-white);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    height: 350px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+/* --- Heatmap Calendar --- */
+.heatmap-container {
+    background: var(--card-white);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+    overflow-x: auto;
+}
+
+.heatmap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: #757575;
+}
+
+.legend-item {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-rows: repeat(7, 12px); /* 7 days */
+    grid-auto-flow: column; /* Fill columns first (weeks) */
+    gap: 3px;
+    padding-bottom: 5px;
+}
+
+.heatmap-cell {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    background-color: #ebedf0; /* Level 0 */
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.2);
+    border: 1px solid rgba(0,0,0,0.2);
+}
+
+/* Activity Levels (Coffee Palette) */
+.heatmap-level-0 { background-color: #ebedf0; } /* Empty */
+.heatmap-level-1 { background-color: #D7CCC8; } /* Lightest */
+.heatmap-level-2 { background-color: #A1887F; }
+.heatmap-level-3 { background-color: #6D4C41; }
+.heatmap-level-4 { background-color: #3E2723; } /* Darkest */
+
+/* Selection Styles */
+.heatmap-cell.selected-start,
+.heatmap-cell.selected-end {
+    background-color: var(--accent-matcha) !important;
+    border: 1px solid #1B5E20;
+}
+
+.heatmap-cell.selected-range {
+    background-color: #C8E6C9 !important; /* Light Green */
+}

@@ -125,35 +125,101 @@
 
     <!-- Analytics Page -->
     <div id="analytics-page" class="page" style="display: none;">
-        <div class="card" style="margin-bottom: 20px;">
-            <div class="card-title">Cashflow Analytics</div>
-            <div style="display: flex; gap: 10px; align-items: flex-end;">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label style="font-size:0.8rem;">Start Date</label>
-                    <input type="date" id="analytics-start">
+        <h1 style="margin-bottom: 1.5rem;">Cashflow Analytics</h1>
+
+        <!-- Heatmap Calendar -->
+        <div id="heatmap-root" class="heatmap-container">
+            <div class="heatmap-header">
+                <div class="heatmap-title">Activity Calendar</div>
+                <div class="heatmap-legend">
+                    <span>Less</span>
+                    <div class="legend-item heatmap-level-0"></div>
+                    <div class="legend-item heatmap-level-1"></div>
+                    <div class="legend-item heatmap-level-2"></div>
+                    <div class="legend-item heatmap-level-3"></div>
+                    <div class="legend-item heatmap-level-4"></div>
+                    <span>More</span>
                 </div>
-                <div class="form-group" style="margin-bottom:0;">
-                    <label style="font-size:0.8rem;">End Date</label>
-                    <input type="date" id="analytics-end">
-                </div>
-                <button id="calc-analytics-btn" class="quick-add-btn" style="width: auto; margin:0; padding: 10px 20px;">Calculate</button>
+            </div>
+            <div id="heatmap-grid" class="heatmap-grid">
+                <!-- Grid cells will be injected here by JS -->
             </div>
         </div>
 
-        <div class="card chart-card" style="margin-bottom: 20px; grid-column: span 3;">
-            <div class="chart-wrapper" style="height: 300px;">
-                <canvas id="cashflowChart"></canvas>
+        <div class="analytics-controls">
+            <div class="form-group" style="display: none;">
+                <label for="analytics-start">Start Date</label>
+                <input type="date" id="analytics-start">
+            </div>
+            <div class="form-group" style="display: none;">
+                <label for="analytics-end">End Date</label>
+                <input type="date" id="analytics-end">
+            </div>
+
+            <!-- Display Selected Range -->
+            <div class="form-group">
+                <label>Selected Range</label>
+                <div style="font-weight: bold; font-size: 1.1rem; color: var(--accent-latte);">
+                    <span id="display-start">Select start</span> — <span id="display-end">Select end</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button id="calc-analytics-btn">Calculate</button>
             </div>
         </div>
 
-        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="chart-container">
+            <canvas id="cashflowChart"></canvas>
+        </div>
+
+        <div class="analytics-grid">
             <div class="card">
                 <div class="card-title">Liquid Cashflow</div>
-                <div id="analytics-liquid-stats"></div>
+                <div class="cashflow-list">
+                    <div class="cashflow-row">
+                        <span class="row-label">Opening Balance</span>
+                        <span class="row-amount" id="liquid-opening">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Income (+)</span>
+                        <span class="row-amount positive" id="liquid-income">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Expense (-)</span>
+                        <span class="row-amount negative" id="liquid-expense">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Net Flow</span>
+                        <span class="row-amount" id="liquid-net-flow">€0.00</span>
+                    </div>
+                    <div class="cashflow-row total">
+                        <span class="row-label">Closing Balance</span>
+                        <span class="row-amount" id="liquid-closing">€0.00</span>
+                    </div>
+                </div>
             </div>
+
             <div class="card">
                 <div class="card-title">Vault Strategy</div>
-                <div id="analytics-vault-stats"></div>
+                <div class="cashflow-list">
+                    <div class="cashflow-row">
+                        <span class="row-label">Opening Balance</span>
+                        <span class="row-amount" id="vault-opening">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Deposits (+)</span>
+                        <span class="row-amount positive" id="vault-deposit">€0.00</span>
+                    </div>
+                    <div class="cashflow-row">
+                        <span class="row-label">Withdrawals (-)</span>
+                        <span class="row-amount negative" id="vault-withdraw">€0.00</span>
+                    </div>
+                    <div class="cashflow-row total">
+                        <span class="row-label">Closing Balance</span>
+                        <span class="row-amount" id="vault-closing">€0.00</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

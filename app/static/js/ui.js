@@ -208,32 +208,41 @@ export function renderChart(transactions, categories) {
 }
 
 export function renderAnalytics(data) {
-    const liquidStats = document.getElementById('analytics-liquid-stats');
-    const vaultStats = document.getElementById('analytics-vault-stats');
+    // Helper to update text and class
+    const updateRow = (id, amount, invertColor=false) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        // Convert cents to units (backend sends cents)
+        const val = amount / 100;
+        el.textContent = formatCurrency(amount); 
+        
+        el.className = 'row-amount'; // Reset
+        
+        // Color logic
+        if (val > 0) el.classList.add(invertColor ? 'negative' : 'positive');
+        if (val < 0) el.classList.add(invertColor ? 'positive' : 'negative');
+        // Specific fix for "Expense" rows which are usually negative:
+        if (id.includes('expense') || id.includes('withdraw')) el.classList.add('negative');
+        if (id.includes('income') || id.includes('deposit')) el.classList.add('positive');
+    };
 
-    liquidStats.innerHTML = `
-        <table class="cashflow-table">
-            <tr><td>Opening Balance</td><td class="amount">${formatCurrency(data.liquid.opening)}</td></tr>
-            <tr><td>Income (+)</td><td class="amount positive">${formatCurrency(data.liquid.income)}</td></tr>
-            <tr><td>Expense (-)</td><td class="amount negative">${formatCurrency(data.liquid.expense)}</td></tr>
-            <tr><td>Net Flow</td><td class="amount">${formatCurrency(data.liquid.net_flow)}</td></tr>
-            <tr class="cashflow-row-total"><td>Closing Balance</td><td class="amount">${formatCurrency(data.liquid.closing)}</td></tr>
-        </table>
-    `;
+    // Liquid
+    updateRow('liquid-opening', data.liquid.opening);
+    updateRow('liquid-income', data.liquid.income);
+    updateRow('liquid-expense', data.liquid.expense);
+    updateRow('liquid-net-flow', data.liquid.net_flow);
+    updateRow('liquid-closing', data.liquid.closing);
 
-    vaultStats.innerHTML = `
-        <table class="cashflow-table">
-            <tr><td>Opening Balance</td><td class="amount">${formatCurrency(data.vault.opening)}</td></tr>
-            <tr><td>Deposits (+)</td><td class="amount positive">${formatCurrency(data.vault.deposit)}</td></tr>
-            <tr><td>Withdrawals (-)</td><td class="amount negative">${formatCurrency(data.vault.withdraw)}</td></tr>
-            <tr class="cashflow-row-total"><td>Closing Balance</td><td class="amount">${formatCurrency(data.vault.closing)}</td></tr>
-        </table>
-    `;
+    // Vault
+    updateRow('vault-opening', data.vault.opening);
+    updateRow('vault-deposit', data.vault.deposit);
+    updateRow('vault-withdraw', data.vault.withdraw);
+    updateRow('vault-closing', data.vault.closing);
 
+    // Chart logic (Keep existing Chart.js logic)
     const ctx = document.getElementById('cashflowChart').getContext('2d');
-    if (cashflowChart) {
-        cashflowChart.destroy();
-    }
+    if (cashflowChart) cashflowChart.destroy();
 
     const income = data.liquid.income / 100;
     const expense = Math.abs(data.liquid.expense / 100);
@@ -268,6 +277,58 @@ export function renderAnalytics(data) {
             scales: { y: { beginAtZero: true } },
             plugins: { legend: { display: false } }
         }
+    });
+}
+
+export function renderActivityMap(data, onDateClickCallback) {
+    const grid = document.getElementById('heatmap-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    const today = new Date();
+    // Generate last 365 days
+    const days = [];
+    for (let i = 364; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        days.push(d);
+    }
+    
+    // Calculate max value for scaling
+    const values = Object.values(data);
+    const maxVal = values.length > 0 ? Math.max(...values) : 1;
+
+    days.forEach(date => {
+        const dateStr = date.toISOString().split('T')[0];
+        const count = data[dateStr] || 0;
+        
+        const cell = document.createElement('div');
+        
+        // Determine level (0-4)
+        let level = 0;
+        if (count > 0) {
+            const ratio = count / maxVal;
+            if (ratio <= 0.25) level = 1;
+            else if (ratio <= 0.50) level = 2;
+            else if (ratio <= 0.75) level = 3;
+            else level = 4;
+        }
+
+        cell.className = `heatmap-cell heatmap-level-${level}`;
+        cell.title = `${dateStr}: ${count} transactions`; // Tooltip
+        cell.dataset.date = dateStr;
+        
+        cell.addEventListener('click', () => {
+            // Highlight logic
+            document.querySelectorAll('.heatmap-cell').forEach(c => c.classList.remove('selected-start', 'selected-end'));
+            cell.classList.add('selected-start');
+            
+            if (onDateClickCallback) {
+                onDateClickCallback(dateStr);
+            }
+        });
+        
+        grid.appendChild(cell);
     });
 }
 

@@ -145,3 +145,8 @@ export async function fetchCashflow(startDate, endDate) {
     });
     return handleResponse(res);
 }
+
+export async function fetchActivityMap() {
+    const res = await fetch(`${apiBase}/analytics/activity`, { headers: getAuthHeaders() });
+    return handleResponse(res);
+}

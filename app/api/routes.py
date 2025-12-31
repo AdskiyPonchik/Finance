@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, date
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
+from sqlalchemy import func
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 
 from app.core.database import get_session
 from app.core.models import Transaction, User, Category, CategoryType, RecurringTransaction
 from app.core.auth import create_access_token, get_current_user, get_password_hash, verify_password
 from app.api.utils import process_recurring_transactions
-from app.api.analytics import calculate_cashflow
+from app.api.analytics import calculate_cashflow, get_heatmap_data
 from datetime import timedelta
 
 # --- Routers ---
@@ -332,3 +333,38 @@ def get_cashflow_analytics(
     session: Session = Depends(get_session)
 ):
     return calculate_cashflow(session, current_user.id, start_date, end_date)
+
+@router.get("/analytics/heatmap", response_model=Dict[str, int])
+def get_heatmap_analytics(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    return get_heatmap_data(session, current_user.id)
+
+
+@router.get("/analytics/activity", response_model=Dict[str, int])
+def get_activity_map(
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(get_session)
+):
+    today = date.today()
+    start_date = today - timedelta(days=365)
+
+    # SQLite stores datetime as strings, so func.date() will correctly truncate the time.
+    # We group specifically by DAY, ignoring hours and minutes.
+    statement = (
+        select(func.date(Transaction.date), func.sum(func.abs(Transaction.amount)))
+        .where(Transaction.owner_id == current_user.id)
+        .where(Transaction.date >= datetime.combine(start_date, datetime.min.time()))
+        .group_by(func.date(Transaction.date))
+    )
+
+    results = session.exec(statement).all()
+
+    activity_data = {}
+    for date_str, amount in results:
+        # date_str will be a string 'YYYY-MM-DD' thanks to func.date()
+        # amount can be None if there were no transactions (though the where clause should prevent this), default to 0 just in case.
+        activity_data[date_str] = int(amount) if amount is not None else 0
+
+    return activity_data

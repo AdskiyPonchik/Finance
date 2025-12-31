@@ -16,7 +16,8 @@ import {
     fetchRecurring,
     createRecurring,
     deleteRecurring,
-    fetchCashflow
+    fetchCashflow,
+    fetchActivityMap
 } from './api.js';
 
 import { 
@@ -33,7 +34,8 @@ import {
     closeModal,
     openProfileModal,
     updateToggleState,
-    animateDashboard
+    animateDashboard,
+    renderActivityMap
 } from './ui.js';
 
 let currentTransactionId = null;
@@ -125,7 +127,7 @@ function attachEventListeners() {
 
     // --- Sidebar Navigation ---
     document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
+        link.addEventListener('click', async (e) => {
             e.preventDefault();
             const targetId = link.getAttribute('data-target');
             
@@ -148,6 +150,18 @@ function attachEventListeners() {
                 const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
                 document.getElementById('analytics-start').value = firstDay;
                 document.getElementById('analytics-end').value = lastDay;
+
+                try {
+                    const activityData = await fetchActivityMap();
+                    renderActivityMap(activityData, (date) => {
+                        document.getElementById('analytics-start').value = date;
+                        document.getElementById('analytics-end').value = date;
+                        loadAnalytics();
+                    });
+                } catch (error) {
+                    console.error("Failed to load activity map", error);
+                }
+
                 loadAnalytics();
             }
             
