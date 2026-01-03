@@ -1,6 +1,7 @@
 import time
 import random
 from datetime import datetime, timedelta
+from sqlalchemy import text
 from sqlmodel import Session, create_engine, select
 from app.core.models import Transaction, Category, User
 
@@ -14,6 +15,12 @@ def bulk_seed(total_records=1_000_000, batch_size=50_000):
     Directly seeds the PostgreSQL database with a large number of transactions.
     Bypasses the API for maximum performance.
     """
+
+    print("(!) Clearing old data...")
+    with Session(engine) as session:
+        session.exec(text("TRUNCATE TABLE transaction RESTART IDENTITY CASCADE;"))
+        session.commit()
+
     start_time = time.time()
 
     # 1. Setup: Fetch admin user and available categories
@@ -41,8 +48,8 @@ def bulk_seed(total_records=1_000_000, batch_size=50_000):
                 days_back = random.randint(0, 365)
                 tx_date = datetime.now() - timedelta(days=days_back)
 
-                # Financial logic: 15% income, 85% expenses
-                is_income = random.random() < 0.15
+                # Financial logic: 51% income, 49% expenses
+                is_income = random.random() < 0.51
                 # Amount in cents (randomized between 5 and 5000 units)
                 amount = random.randint(5, 5000) * (100 if is_income else -100)
 
