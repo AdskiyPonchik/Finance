@@ -39,6 +39,9 @@ import {
 } from './ui.js';
 
 let currentTransactionId = null;
+let currentHistoryPage = 0;
+const HISTORY_PAGE_SIZE = 50;
+let allTransactions = []; // Store for optimistic updates
 
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('token');
@@ -65,18 +68,22 @@ async function loadDashboard() {
     try {
         const [balance, transactionsResponse, categories, user] = await Promise.all([
             fetchBalance(),
-            fetchTransactions(),
+            fetchTransactions(), // Fetches first page by default
             fetchCategories(),
             fetchUser(),
         ]);
 
-        const transactions = transactionsResponse.items;
+        allTransactions = transactionsResponse.items; // Store locally
+        const totalTransactions = transactionsResponse.total;
 
         updateBalanceCards(balance);
-        renderTransactions(transactions);
+        renderTransactions(allTransactions);
         renderCategoryTags(categories);
-        renderChart(transactions, categories);
+        renderChart(allTransactions, categories);
         renderUserInfo(user);
+        
+        // Update Pagination Controls
+        updatePaginationControls(totalTransactions);
         
         animateDashboard(); // Animate after data refresh
         
@@ -84,6 +91,44 @@ async function loadDashboard() {
         showToast(error.message, 'error');
         console.error("Dashboard Load Error:", error);
     }
+}
+
+async function loadHistoryPage(offset) {
+    try {
+        // Manually fetch with offset
+        const res = await fetch(`/api/transactions/?offset=${offset}&limit=${HISTORY_PAGE_SIZE}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch history');
+        const data = await res.json();
+        
+        allTransactions = data.items;
+        renderTransactions(allTransactions);
+        updatePaginationControls(data.total);
+        
+    } catch (error) {
+        showToast("Failed to load history page.", "error");
+    }
+}
+
+function updatePaginationControls(total) {
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+    const pageInfo = document.getElementById('page-info');
+    
+    if (!prevBtn || !nextBtn || !pageInfo) return;
+
+    const totalPages = Math.ceil(total / HISTORY_PAGE_SIZE) || 1;
+    const currentPage = Math.floor(currentHistoryPage / HISTORY_PAGE_SIZE) + 1;
+
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    
+    prevBtn.disabled = currentHistoryPage === 0;
+    nextBtn.disabled = currentPage >= totalPages;
 }
 
 async function loadSubscriptions() {
@@ -156,9 +201,16 @@ function attachEventListeners() {
                 try {
                     const activityData = await fetchActivityMap();
                     renderActivityMap(activityData, (date) => {
-                        document.getElementById('analytics-start').value = date;
-                        document.getElementById('analytics-end').value = date;
-                        loadAnalytics();
+                        // Callback when a date is clicked on heatmap
+                        // We can auto-set range or just start date
+                        // For now, let's just set both to the clicked date for single day view, 
+                        // or handle range logic inside analytics.js (which we did).
+                        // The callback in ui.js actually just passes the date string.
+                        // The logic in analytics.js handles the range selection state.
+                        // So we just need to trigger the load if a range is complete.
+                        
+                        // Actually, analytics.js handles the click logic internally now.
+                        // We just need to ensure the initial render happens.
                     });
                 } catch (error) {
                     console.error("Failed to load activity map", error);
@@ -171,6 +223,26 @@ function attachEventListeners() {
             animateDashboard();
         });
     });
+
+    // --- Pagination Controls ---
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentHistoryPage > 0) {
+                currentHistoryPage -= HISTORY_PAGE_SIZE;
+                loadHistoryPage(currentHistoryPage);
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            currentHistoryPage += HISTORY_PAGE_SIZE;
+            loadHistoryPage(currentHistoryPage);
+        });
+    }
 
     // --- Mobile Sidebar Toggle ---
     const menuToggle = document.getElementById('menu-toggle');
@@ -219,7 +291,11 @@ function attachEventListeners() {
                     try {
                         await deleteTransactionApi(txId);
                         showToast('Transaction deleted.', 'success');
-                        await loadDashboard();
+                        // Optimistic delete
+                        allTransactions = allTransactions.filter(t => t.id != txId);
+                        renderTransactions(allTransactions);
+                        // Also refresh balance in background
+                        fetchBalance().then(updateBalanceCards);
                     } catch (error) {
                         showToast(`Delete failed: ${error.message}`, 'error');
                     }
@@ -227,10 +303,9 @@ function attachEventListeners() {
             }
             if (e.target.classList.contains('edit-btn')) {
                 const txId = e.target.dataset.txId;
-                const allTxResponse = await fetchTransactions();
-                const allTx = allTxResponse.items;
-                const tx = allTx.find(t => t.id == txId);
-                openEditModal(tx);
+                // Use local data instead of fetching again
+                const tx = allTransactions.find(t => t.id == txId);
+                if (tx) openEditModal(tx);
             }
         });
     }
@@ -490,10 +565,27 @@ async function saveTransaction() {
 
     saveBtn.disabled = true;
     try {
-        await saveTransactionApi(payload, currentTransactionId);
+        const updatedTx = await saveTransactionApi(payload, currentTransactionId);
         showToast('Transaction saved successfully!', 'success');
         closeModal('add-tx-modal');
-        await loadDashboard();
+        
+        // Optimistic Update
+        if (currentTransactionId) {
+            // Edit mode: Update existing item in array
+            const index = allTransactions.findIndex(t => t.id === currentTransactionId);
+            if (index !== -1) {
+                allTransactions[index] = updatedTx;
+                renderTransactions(allTransactions);
+            }
+        } else {
+            // Add mode: Add to top of list
+            allTransactions.unshift(updatedTx);
+            renderTransactions(allTransactions);
+        }
+        
+        // Refresh balance in background
+        fetchBalance().then(updateBalanceCards);
+        
     } catch (error) {
         showToast(`Save failed: ${error.message}`, 'error');
     } finally {

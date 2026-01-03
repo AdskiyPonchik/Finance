@@ -10,7 +10,9 @@ export const formatCurrency = (valueInCents) => {
     if (isNaN(valueInCents)) {
         valueInCents = 0;
     }
-    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(valueInCents / 100);
+    // Always display as positive number for UI consistency
+    const absValue = Math.abs(valueInCents);
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(absValue / 100);
 };
 
 export function showToast(message, type = 'success') {
@@ -22,7 +24,7 @@ export function showToast(message, type = 'success') {
 
     setTimeout(() => {
         toast.remove();
-    }, 1000);
+    }, 3000);
 }
 
 export function updateBalanceCards(balance) {
@@ -37,6 +39,13 @@ export function renderTransactions(transactions) {
     
     if (historyBody) historyBody.innerHTML = '';
     if (dashboardBody) dashboardBody.innerHTML = '';
+
+    if (!transactions || transactions.length === 0) {
+        const emptyRow = `<tr><td colspan="5" style="text-align:center; color: #888;">No recent activity</td></tr>`;
+        if (historyBody) historyBody.innerHTML = emptyRow;
+        if (dashboardBody) dashboardBody.innerHTML = emptyRow;
+        return;
+    }
 
     const sortedTx = transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -294,41 +303,59 @@ export function renderActivityMap(data, onDateClickCallback) {
         days.push(d);
     }
     
-    // Calculate max value for scaling
-    const values = Object.values(data);
-    const maxVal = values.length > 0 ? Math.max(...values) : 1;
+    // Group by month
+    const months = {};
+    days.forEach(d => {
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        if (!months[key]) months[key] = [];
+        months[key].push(d);
+    });
 
-    days.forEach(date => {
-        const dateStr = date.toISOString().split('T')[0];
-        const count = data[dateStr] || 0;
+    // Render months
+    Object.keys(months).sort().reverse().forEach(key => {
+        const monthContainer = document.createElement('div');
+        monthContainer.className = 'heatmap-month';
         
-        const cell = document.createElement('div');
-        
-        // Determine level (0-4)
-        let level = 0;
-        if (count > 0) {
-            const ratio = count / maxVal;
-            if (ratio <= 0.25) level = 1;
-            else if (ratio <= 0.50) level = 2;
-            else if (ratio <= 0.75) level = 3;
-            else level = 4;
-        }
+        const monthLabel = document.createElement('div');
+        monthLabel.className = 'heatmap-month-label';
+        const firstDate = months[key][0];
+        monthLabel.textContent = firstDate.toLocaleString('default', { month: 'short' });
+        monthContainer.appendChild(monthLabel);
 
-        cell.className = `heatmap-cell heatmap-level-${level}`;
-        cell.title = `${dateStr}: ${count} transactions`; // Tooltip
-        cell.dataset.date = dateStr;
-        
-        cell.addEventListener('click', () => {
-            // Highlight logic
-            document.querySelectorAll('.heatmap-cell').forEach(c => c.classList.remove('selected-start', 'selected-end'));
-            cell.classList.add('selected-start');
+        const daysContainer = document.createElement('div');
+        daysContainer.className = 'heatmap-days';
+
+        months[key].forEach(date => {
+            const dateStr = date.toISOString().split('T')[0];
+            const count = data[dateStr] || 0;
             
-            if (onDateClickCallback) {
-                onDateClickCallback(dateStr);
+            const cell = document.createElement('div');
+            
+            // Determine level (0-4)
+            let level = 0;
+            if (count > 0) {
+                // Simple scale for now
+                if (count <= 2) level = 1;
+                else if (count <= 5) level = 2;
+                else if (count <= 10) level = 3;
+                else level = 4;
             }
+
+            cell.className = `heatmap-cell heatmap-level-${level}`;
+            cell.title = `${dateStr}: ${count} transactions`; // Tooltip
+            cell.dataset.date = dateStr;
+            
+            cell.addEventListener('click', () => {
+                if (onDateClickCallback) {
+                    onDateClickCallback(dateStr);
+                }
+            });
+            
+            daysContainer.appendChild(cell);
         });
         
-        grid.appendChild(cell);
+        monthContainer.appendChild(daysContainer);
+        grid.appendChild(monthContainer);
     });
 }
 

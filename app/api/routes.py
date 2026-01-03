@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, date
 from sqlmodel import Session, select, func
@@ -40,6 +40,10 @@ class TransactionRead(BaseModel):
     category_name: str
     category_type: CategoryType
     category_color: str
+
+class PaginatedTransactionResponse(BaseModel):
+    total: int
+    items: List[TransactionRead]
 
 class Balance(BaseModel):
     liquid: int
@@ -196,18 +200,32 @@ def delete_transaction(
     session.commit()
     return
 
-@router.get("/transactions/", response_model=List[TransactionRead])
+@router.get("/transactions/", response_model=PaginatedTransactionResponse)
 def get_transactions(
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100)
 ):
     # Check for recurring transactions
     process_recurring_transactions(session, current_user.id)
 
-    statement = select(Transaction, Category).join(Category).where(Transaction.owner_id == current_user.id).order_by(Transaction.date.desc())
+    # Count query
+    count_statement = select(func.count()).select_from(Transaction).where(Transaction.owner_id == current_user.id)
+    total = session.exec(count_statement).one()
+
+    # Data query
+    statement = (
+        select(Transaction, Category)
+        .join(Category)
+        .where(Transaction.owner_id == current_user.id)
+        .order_by(Transaction.date.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     results = session.exec(statement).all()
     
-    return [
+    items = [
         TransactionRead(
             id=tx.id,
             title=tx.title,
@@ -219,6 +237,8 @@ def get_transactions(
             category_color=cat.color
         ) for tx, cat in results
     ]
+
+    return PaginatedTransactionResponse(total=total, items=items)
 
 @router.get("/balance/", response_model=Balance)
 def get_balance(

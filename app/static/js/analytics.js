@@ -1,4 +1,4 @@
-import { getAuthHeaders, formatCurrency, logout } from './app.js';
+import { getAuthHeaders, formatCurrency } from './api.js';
 import { showToast } from './ui.js';
 
 let cashflowChart = null;
@@ -16,34 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const endDateInput = document.getElementById('end-date');
 
     // Format dates as YYYY-MM-DD
-    startDateInput.value = firstDay.toISOString().split('T')[0];
-    endDateInput.value = lastDay.toISOString().split('T')[0];
-
-    updateDateDisplay(startDateInput.value, endDateInput.value);
+    if (startDateInput && endDateInput) {
+        startDateInput.value = firstDay.toISOString().split('T')[0];
+        endDateInput.value = lastDay.toISOString().split('T')[0];
+        updateDateDisplay(startDateInput.value, endDateInput.value);
+    }
 
     // Bind events
-    document.getElementById('calculate-btn').addEventListener('click', loadAnalytics);
-    document.getElementById('logout-btn').addEventListener('click', logout);
+    const calcBtn = document.getElementById('calc-analytics-btn');
+    if (calcBtn) calcBtn.addEventListener('click', loadAnalytics);
     
-    // Mobile menu toggle
-    const menuToggle = document.getElementById('menu-toggle');
-    const sidebar = document.getElementById('app-sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-
-    if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
-            sidebar.style.display = 'block';
-            overlay.style.display = 'block';
-        });
-    }
-
-    if (overlay) {
-        overlay.addEventListener('click', () => {
-            sidebar.style.display = 'none';
-            overlay.style.display = 'none';
-        });
-    }
-
     // Initial load
     loadHeatmap();
     loadAnalytics();
@@ -68,6 +50,7 @@ async function loadHeatmap() {
 
 function renderHeatmap() {
     const grid = document.getElementById('heatmap-grid');
+    if (!grid) return;
     grid.innerHTML = '';
 
     const today = new Date();
@@ -79,18 +62,44 @@ function renderHeatmap() {
         days.push(d);
     }
 
-    days.forEach(date => {
-        const dateStr = date.toISOString().split('T')[0];
-        const count = heatmapData[dateStr] || 0;
+    // Group by month
+    const months = {};
+    days.forEach(d => {
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        if (!months[key]) months[key] = [];
+        months[key].push(d);
+    });
 
-        const cell = document.createElement('div');
-        cell.className = `heatmap-cell heatmap-level-${getLevel(count)}`;
-        cell.title = `${dateStr}: ${count} transactions`;
-        cell.dataset.date = dateStr;
+    // Render months
+    Object.keys(months).sort().reverse().forEach(key => {
+        const monthContainer = document.createElement('div');
+        monthContainer.className = 'heatmap-month';
+        
+        const monthLabel = document.createElement('div');
+        monthLabel.className = 'heatmap-month-label';
+        const firstDate = months[key][0];
+        monthLabel.textContent = firstDate.toLocaleString('default', { month: 'short' });
+        monthContainer.appendChild(monthLabel);
 
-        cell.addEventListener('click', () => handleDateSelection(dateStr));
+        const daysContainer = document.createElement('div');
+        daysContainer.className = 'heatmap-days';
 
-        grid.appendChild(cell);
+        months[key].forEach(date => {
+            const dateStr = date.toISOString().split('T')[0];
+            const count = heatmapData[dateStr] || 0;
+            
+            const cell = document.createElement('div');
+            cell.className = `heatmap-cell heatmap-level-${getLevel(count)}`;
+            cell.title = `${dateStr}: ${count} transactions`;
+            cell.dataset.date = dateStr;
+            
+            cell.addEventListener('click', () => handleDateSelection(dateStr));
+            
+            daysContainer.appendChild(cell);
+        });
+        
+        monthContainer.appendChild(daysContainer);
+        grid.appendChild(monthContainer);
     });
 
     // Highlight initial range if set
@@ -120,8 +129,11 @@ function handleDateSelection(dateStr) {
         }
 
         // Update inputs and trigger load
-        document.getElementById('start-date').value = selectionStart;
-        document.getElementById('end-date').value = selectionEnd;
+        const startInput = document.getElementById('analytics-start');
+        const endInput = document.getElementById('analytics-end');
+        if (startInput) startInput.value = selectionStart;
+        if (endInput) endInput.value = selectionEnd;
+        
         updateDateDisplay(selectionStart, selectionEnd);
         loadAnalytics();
     }
@@ -131,8 +143,11 @@ function handleDateSelection(dateStr) {
 
 function highlightRange() {
     const cells = document.querySelectorAll('.heatmap-cell');
-    const start = selectionStart || document.getElementById('start-date').value;
-    const end = selectionEnd || document.getElementById('end-date').value;
+    const startInput = document.getElementById('analytics-start');
+    const endInput = document.getElementById('analytics-end');
+    
+    const start = selectionStart || (startInput ? startInput.value : null);
+    const end = selectionEnd || (endInput ? endInput.value : null);
 
     cells.forEach(cell => {
         const d = cell.dataset.date;
@@ -152,8 +167,13 @@ function updateDateDisplay(start, end) {
 }
 
 async function loadAnalytics() {
-    const startDate = document.getElementById('start-date').value;
-    const endDate = document.getElementById('end-date').value;
+    const startInput = document.getElementById('analytics-start');
+    const endInput = document.getElementById('analytics-end');
+    
+    if (!startInput || !endInput) return;
+
+    const startDate = startInput.value;
+    const endDate = endInput.value;
 
     if (!startDate || !endDate) {
         showToast("Please select both start and end dates.", "error");
@@ -208,9 +228,14 @@ function updateUI(data) {
 function updateElement(id, value) {
     const el = document.getElementById(id);
     if (el) {
-        // Convert cents to float
-        const floatVal = value / 100;
-        el.textContent = formatCurrency(floatVal);
+        // Convert cents to float (backend sends cents)
+        // Always display absolute value for UI consistency
+        const absValue = Math.abs(value);
+        const floatVal = absValue / 100;
+        
+        // Use the imported formatCurrency which handles formatting
+        // But we need to construct the string manually here to control classes
+        el.textContent = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(floatVal);
         
         // Add color classes for flows
         if (id.includes('income') || id.includes('deposit')) {
@@ -221,14 +246,17 @@ function updateElement(id, value) {
             el.classList.add('negative');
         } else if (id.includes('net-flow')) {
             el.classList.remove('positive', 'negative');
-            if (floatVal > 0) el.classList.add('positive');
-            if (floatVal < 0) el.classList.add('negative');
+            if (value > 0) el.classList.add('positive');
+            if (value < 0) el.classList.add('negative');
         }
     }
 }
 
 function renderCashflowChart(data) {
-    const ctx = document.getElementById('cashflowChart').getContext('2d');
+    const ctx = document.getElementById('cashflowChart');
+    if (!ctx) return;
+    
+    const context = ctx.getContext('2d');
     
     if (cashflowChart) {
         cashflowChart.destroy();
@@ -239,7 +267,7 @@ function renderCashflowChart(data) {
     const vaultIn = data.vault.deposit / 100;
     const vaultOut = Math.abs(data.vault.withdraw / 100);
 
-    cashflowChart = new Chart(ctx, {
+    cashflowChart = new Chart(context, {
         type: 'bar',
         data: {
             labels: ['Income', 'Expense', 'Vault In', 'Vault Out'],
