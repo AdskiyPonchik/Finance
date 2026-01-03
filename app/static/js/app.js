@@ -63,12 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadDashboard() {
     try {
-        const [balance, transactions, categories, user] = await Promise.all([
+        const [balance, transactionsResponse, categories, user] = await Promise.all([
             fetchBalance(),
             fetchTransactions(),
             fetchCategories(),
             fetchUser(),
         ]);
+
+        const transactions = transactionsResponse.items;
 
         updateBalanceCards(balance);
         renderTransactions(transactions);
@@ -225,7 +227,8 @@ function attachEventListeners() {
             }
             if (e.target.classList.contains('edit-btn')) {
                 const txId = e.target.dataset.txId;
-                const allTx = await fetchTransactions();
+                const allTxResponse = await fetchTransactions();
+                const allTx = allTxResponse.items;
                 const tx = allTx.find(t => t.id == txId);
                 openEditModal(tx);
             }
