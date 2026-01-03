@@ -365,6 +365,7 @@ def get_activity_map(
     for date_str, amount in results:
         # date_str will be a string 'YYYY-MM-DD' thanks to func.date()
         # amount can be None if there were no transactions (though the where clause should prevent this), default to 0 just in case.
-        activity_data[date_str] = int(amount) if amount is not None else 0
+        date_str = str(date_str) # strong type casting
+        activity_data[date_str] = int(amount) if amount else 0
 
     return activity_data

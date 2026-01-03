@@ -9,7 +9,7 @@ from seed_old import amount_eur, success_count
 BASE_URL = "http://127.0.0.1:8080/api"
 USERNAME = "admin"
 PASSWORD = "admin"
-TX_COUNT = 1_000_000 # data count
+TX_COUNT = 1_000 # data count
 
 
 def generate_payload(expense_cats, income_cats) -> Dict:
