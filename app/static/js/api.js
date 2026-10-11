@@ -15,14 +15,18 @@ async function handleResponse(res) {
     if (res.status === 401) {
         localStorage.removeItem('token');
         location.reload();
-        return;
+        throw new Error('Session expired. Please log in again.');
     }
     if (res.status === 204) {
         return;
     }
     if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.detail || 'An API error occurred');
+        const detail = errorData.detail;
+        const message = Array.isArray(detail)
+            ? detail.map(item => `${item.loc.join('.')}: ${item.msg}`).join('; ')
+            : detail;
+        throw new Error(message || 'An API error occurred');
     }
     return res.json();
 }
@@ -49,6 +53,11 @@ export async function loginApi(username, password) {
 
 export async function fetchBalance() {
     const res = await fetch(`${apiBase}/balance/`, { headers: getAuthHeaders() });
+    return handleResponse(res);
+}
+
+export async function fetchExpenseBreakdown() {
+    const res = await fetch(`${apiBase}/analytics/expenses`, { headers: getAuthHeaders() });
     return handleResponse(res);
 }
 
@@ -119,6 +128,14 @@ export async function deleteCategoryApi(id) {
 
 export async function fetchRecurring() {
     const res = await fetch(`${apiBase}/recurring/`, { headers: getAuthHeaders() });
+    return handleResponse(res);
+}
+
+export async function processRecurring() {
+    const res = await fetch(`${apiBase}/recurring/process`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+    });
     return handleResponse(res);
 }
 

@@ -4,6 +4,7 @@
 import { 
     loginApi, 
     fetchBalance, 
+    fetchExpenseBreakdown,
     fetchTransactions, 
     fetchCategories, 
     fetchUser, 
@@ -14,6 +15,7 @@ import {
     createCategoryApi,
     deleteCategoryApi,
     fetchRecurring,
+    processRecurring,
     createRecurring,
     deleteRecurring,
     fetchCashflow,
@@ -37,6 +39,8 @@ import {
     animateDashboard,
     renderActivityMap
 } from './ui.js';
+
+import { formatLocalDate } from './date.js';
 
 let currentTransactionId = null;
 let currentHistoryPage = 0;
@@ -66,11 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadDashboard() {
     try {
-        const [balance, transactionsResponse, categories, user] = await Promise.all([
+        await processRecurring();
+        const [balance, transactionsResponse, categories, user, expenses] = await Promise.all([
             fetchBalance(),
             fetchTransactions(), // Fetches first page by default
             fetchCategories(),
             fetchUser(),
+            fetchExpenseBreakdown(),
         ]);
 
         allTransactions = transactionsResponse.items; // Store locally
@@ -79,7 +85,7 @@ async function loadDashboard() {
         updateBalanceCards(balance);
         renderTransactions(allTransactions);
         renderCategoryTags(categories);
-        renderChart(allTransactions, categories);
+        renderChart(expenses);
         renderUserInfo(user);
         
         // Update Pagination Controls
@@ -193,8 +199,8 @@ function attachEventListeners() {
                 loadSubscriptions();
             } else if (targetId === 'analytics-page') {
                 const today = new Date();
-                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+                const firstDay = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                const lastDay = formatLocalDate(new Date(today.getFullYear(), today.getMonth() + 1, 0));
                 document.getElementById('analytics-start').value = firstDay;
                 document.getElementById('analytics-end').value = lastDay;
 
@@ -408,7 +414,7 @@ function attachEventListeners() {
     if (addSubBtn) {
         addSubBtn.addEventListener('click', async () => {
             const categories = await fetchCategories();
-            renderCategoryTags(categories, 'sub-category-tag-cloud');
+            renderCategoryTags(categories.filter(c => c.type !== 'vault'), 'sub-category-tag-cloud');
             openModal('add-sub-modal');
         });
     }
@@ -443,7 +449,8 @@ function attachEventListeners() {
                 await createRecurring(data);
                 showToast("Subscription added!", "success");
                 closeModal('add-sub-modal');
-                loadSubscriptions();
+                await loadDashboard();
+                await loadSubscriptions();
             } catch (error) {
                 showToast(`Error: ${error.message}`, "error");
             }
@@ -456,6 +463,7 @@ function attachEventListeners() {
             const tag = e.target.closest('.category-tag');
             if (tag) {
                 selectCategory(tag, 'sub-category-id');
+                updateToggleState('sub-type-toggle-group', tag.dataset.type);
             }
         });
     }
@@ -490,7 +498,7 @@ function openAddModal() {
     currentTransactionId = null;
     document.getElementById('modal-title').textContent = 'Add Transaction';
     document.getElementById('add-tx-form').reset();
-    document.getElementById('tx-date').valueAsDate = new Date();
+    document.getElementById('tx-date').value = formatLocalDate(new Date());
     document.getElementById('edit-tx-id').value = '';
     
     // Reset toggles

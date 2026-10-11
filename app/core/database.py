@@ -1,14 +1,12 @@
-from sqlmodel import SQLModel, create_engine, Session
-from fastapi import Depends
-from typing import Generator
+from collections.abc import Generator
 
-#sqlite_url = "sqlite:///./database.db"
-DATABASE_URL = "postgresql://admin:password@localhost:5432/finbrew"
-engine = create_engine(DATABASE_URL, echo=False)
+from sqlmodel import Session, create_engine
 
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+from app.core.config import get_settings
 
-def get_session() -> Generator:
+engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+
+
+def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session

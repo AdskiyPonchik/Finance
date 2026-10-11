@@ -2,7 +2,12 @@
  * UI MODULE
  * ========================================= */
 let expenseChart = null;
+import { formatLocalDate } from './date.js';
 let cashflowChart = null;
+
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+})[character]);
 
 // Utility to format currency
 export const formatCurrency = (valueInCents) => {
@@ -10,9 +15,7 @@ export const formatCurrency = (valueInCents) => {
     if (isNaN(valueInCents)) {
         valueInCents = 0;
     }
-    // Always display as positive number for UI consistency
-    const absValue = Math.abs(valueInCents);
-    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(absValue / 100);
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(valueInCents / 100);
 };
 
 export function showToast(message, type = 'success') {
@@ -73,8 +76,8 @@ function createTransactionRow(tx) {
     tr.style.opacity = '1'; 
 
     tr.innerHTML = `
-        <td>${displayTitle}</td>
-        <td>${tx.category_name}</td>
+        <td>${escapeHtml(displayTitle)}</td>
+        <td>${escapeHtml(tx.category_name)}</td>
         <td>${new Date(tx.date).toLocaleDateString()}</td>
         <td style="text-align: right; font-weight: 600; color: ${amountColor};">${formatCurrency(tx.amount)}</td>
         <td style="text-align: center;">
@@ -138,8 +141,8 @@ export function renderSubscriptions(subs, categories) {
 
         card.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <div style="font-weight: bold; font-size: 1.1rem;">${sub.title}</div>
-                <span style="background-color: ${categoryColor}; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">${categoryName}</span>
+                <div style="font-weight: bold; font-size: 1.1rem;">${escapeHtml(sub.title)}</div>
+                <span class="subscription-category" style="color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">${escapeHtml(categoryName)}</span>
             </div>
             <div style="font-size: 1.5rem; font-weight: bold; color: ${amountColor}; margin-bottom: 10px;">
                 ${formatCurrency(sub.amount)}
@@ -151,6 +154,7 @@ export function renderSubscriptions(subs, categories) {
                 </button>
             </div>
         `;
+        card.querySelector('.subscription-category').style.backgroundColor = categoryColor;
         container.appendChild(card);
     });
 }
@@ -162,25 +166,13 @@ export function renderUserInfo(user) {
     if (settingsUsername) settingsUsername.textContent = user.username;
 }
 
-export function renderChart(transactions, categories) {
+export function renderChart(expenses) {
     const canvas = document.getElementById('expenseChart');
     if (!canvas) return;
 
-    const expenseData = transactions
-        .filter(tx => tx.amount < 0)
-        .reduce((acc, tx) => {
-            const name = tx.category_name || 'Uncategorized';
-            acc[name] = (acc[name] || 0) + Math.abs(tx.amount);
-            return acc;
-        }, {});
-
-    const labels = Object.keys(expenseData);
-    const data = Object.values(expenseData);
-    
-    const categoryColors = labels.map(label => {
-        const cat = categories.find(c => c.name === label);
-        return cat ? cat.color : '#CCCCCC';
-    });
+    const labels = expenses.map(item => item.category_name);
+    const data = expenses.map(item => item.total);
+    const categoryColors = expenses.map(item => item.category_color);
 
     const ctx = canvas.getContext('2d');
     if (expenseChart) {
@@ -326,7 +318,7 @@ export function renderActivityMap(data, onDateClickCallback) {
         daysContainer.className = 'heatmap-days';
 
         months[key].forEach(date => {
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = formatLocalDate(date);
             const count = data[dateStr] || 0;
             
             const cell = document.createElement('div');

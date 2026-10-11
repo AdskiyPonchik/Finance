@@ -17,8 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Format dates as YYYY-MM-DD
     if (startDateInput && endDateInput) {
-        startDateInput.value = firstDay.toISOString().split('T')[0];
-        endDateInput.value = lastDay.toISOString().split('T')[0];
+        startDateInput.value = formatLocalDate(firstDay);
+        endDateInput.value = formatLocalDate(lastDay);
         updateDateDisplay(startDateInput.value, endDateInput.value);
     }
 
@@ -85,7 +85,7 @@ function renderHeatmap() {
         daysContainer.className = 'heatmap-days';
 
         months[key].forEach(date => {
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = formatLocalDate(date);
             const count = heatmapData[dateStr] || 0;
             
             const cell = document.createElement('div');
@@ -229,9 +229,8 @@ function updateElement(id, value) {
     const el = document.getElementById(id);
     if (el) {
         // Convert cents to float (backend sends cents)
-        // Always display absolute value for UI consistency
-        const absValue = Math.abs(value);
-        const floatVal = absValue / 100;
+        const isExpenseFlow = id.includes('expense') || id.includes('withdraw');
+        const floatVal = (isExpenseFlow ? Math.abs(value) : value) / 100;
         
         // Use the imported formatCurrency which handles formatting
         // But we need to construct the string manually here to control classes
@@ -317,3 +316,5 @@ function renderCashflowChart(data) {
         }
     });
 }
+
+import { formatLocalDate } from './date.js';
