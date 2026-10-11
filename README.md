@@ -1,137 +1,194 @@
 # Finance
 
-Веб-приложение для учёта личных финансов: доходы, расходы, накопления,
-категории, ежемесячные платежи и аналитика. Интерфейс отображает суммы в EUR.
+A personal finance web application for tracking income, expenses, savings, and recurring payments. A dashboard brings together transaction history, category breakdowns, cash flow, and spending activity.
 
-## Как устроен проект
+Built with **Python, FastAPI, and PostgreSQL**, with a JavaScript frontend served by the same application. The project includes JWT authentication, versioned database migrations, integration tests against PostgreSQL, and a GitHub Actions CI workflow.
+
+## Features
+
+- **Transaction management** — create, edit, and delete transactions; browse a paginated history.
+- **Custom categories** — organize income, expenses, and savings with named, color-coded categories.
+- **Savings tracking** — move funds between available money and a savings vault while preserving total net worth.
+- **Recurring payments** — define monthly income or expenses, catch up on missed dates, and prevent duplicate entries.
+- **Financial analytics** — view balances, cash flow for a selected period, expense breakdowns, and an activity heatmap.
+- **User accounts** — JWT authentication, bcrypt password hashing, and ownership checks for financial records.
+
+## Engineering details
+
+- Monetary amounts are stored as **integer cents** in PostgreSQL `BIGINT` columns. The UI displays EUR.
+- Pydantic validates API inputs; database constraints enforce nonzero amounts and valid recurring-payment settings.
+- Recurring-payment processing uses PostgreSQL row locks and a persistent record of each scheduled occurrence to prevent duplicate entries, including after a generated transaction is deleted.
+- Alembic migrations manage schema changes independently of application startup.
+- Tests exercise the API against a real PostgreSQL database, with data changes rolled back after each test.
+
+## Technology stack
+
+| Area | Technologies |
+| --- | --- |
+| Backend | Python 3.13 / 3.14, FastAPI, Uvicorn |
+| Database | PostgreSQL, SQLModel, SQLAlchemy, psycopg2 |
+| Validation and authentication | Pydantic, JWT via python-jose, bcrypt |
+| Schema migrations | Alembic |
+| Frontend | Jinja2, HTML, CSS, JavaScript modules, Chart.js |
+| Testing and CI | pytest, HTTPX, GitHub Actions |
+
+## Architecture
 
 ```text
-Браузер: HTML + CSS + JavaScript
-    → /api/token → JWT для дальнейших запросов
-    → /api/* → FastAPI → SQLModel / SQLAlchemy → PostgreSQL
+Browser: HTML / CSS / JavaScript
+                |
+                | HTTP requests and JSON responses
+                v
+FastAPI: authentication, validation, routes, financial calculations
+                |
+                | SQLModel / SQLAlchemy
+                v
+           PostgreSQL
 ```
 
-| Путь | Назначение |
-| --- | --- |
-| `run.py` | Локальный запуск Uvicorn на `127.0.0.1:8080` с перезагрузкой |
-| `app/main.py` | Приложение, подключение API, HTML, статики и health endpoints |
-| `app/core/config.py` | Настройки из переменных окружения и `.env` |
-| `app/core/models.py` | Пользователи, категории, операции, регулярные платежи и записи об их выполнении |
-| `app/core/auth.py` | Хеширование паролей bcrypt и авторизация JWT |
-| `app/api/routes.py` | Вход, операции, категории, регулярные платежи и аналитика |
-| `app/api/schemas.py` | Проверка входных данных и форматы ответов |
-| `app/api/analytics.py` | Баланс, движение средств, расходы по категориям, активность |
-| `app/api/utils.py` | Обработка регулярных платежей |
-| `app/templates/`, `app/static/` | Веб-интерфейс без отдельного этапа сборки |
-| `app/cli.py` | Создание пользователей, смена паролей, обработка платежей |
-| `migrations/` | Версионирование схемы PostgreSQL через Alembic |
-| `scripts/` | Вспомогательные скрипты наполнения, замеров и проверки старой БД |
-| `tests/` | Интеграционные тесты API и бизнес-логики |
+FastAPI serves both the frontend and the API. There is no separate frontend build step. Database migrations and account administration run as explicit commands.
 
-Суммы хранятся целыми числами в центах: `1234` означает €12,34. Доходы
-положительные, расходы отрицательные. Отрицательная операция категории
-`vault` переносит средства из доступного баланса в накопления, положительная
-возвращает их обратно; общая сумма средств при таком переводе не меняется.
+```text
+app/
+├── main.py           # Application setup, routes, static files, health checks
+├── cli.py            # User administration and recurring-payment processing
+├── core/             # Configuration, database connection, models, authentication
+├── api/              # Endpoints, request/response schemas, analytics, payment logic
+├── templates/        # Main HTML page
+└── static/           # JavaScript modules and CSS
+migrations/           # Alembic configuration code and schema revisions
+tests/                # PostgreSQL fixtures and API integration tests
+scripts/              # Legacy data checks, seeding tools, query benchmarks
+.github/workflows/    # CI workflow
+run.py                # Local development server entry point
+```
 
-Данные привязаны к пользователю. Пользователь входит через `/api/token`,
-после чего браузер передаёт JWT в заголовке `Authorization: Bearer …`.
-Публичной регистрации нет: пользователей создаёт CLI.
+## Getting started
 
-Регулярные платежи обрабатываются при загрузке панели через
-`POST /api/recurring/process` либо командой CLI. Отдельного фонового
-планировщика в проекте нет. Пропущенные месяцы обрабатываются начиная с даты
-создания подписки. День 31 в коротком месяце заменяется последним днём месяца.
-Блокировки PostgreSQL и таблица `recurringoccurrence` предотвращают повторное
-начисление, включая повтор после удаления созданной операции.
+### Prerequisites
 
-## Локальный запуск
+- Python 3.13 or 3.14.
+- A running PostgreSQL instance; CI is configured to use PostgreSQL 17.
+- A database and a database user that owns it.
 
-Нужны Python 3.13 или 3.14 и PostgreSQL. CI использует PostgreSQL 17.
-Команды выполняются из корня проекта.
+Run the following commands from the repository root. Shell examples use Bash.
+
+### 1. Install dependencies
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+```
+
+### 2. Configure the application
+
+```bash
 cp .env.example .env
 python -c 'import secrets; print(secrets.token_urlsafe(48))'
 ```
 
-В `.env` укажите `DATABASE_URL` существующей базы и её пользователя,
-а сгенерированное значение запишите в `SECRET_KEY` (минимум 32 символа).
-`APP_TIMEZONE` определяет текущую бизнес-дату, по умолчанию `Europe/Berlin`.
-Переменные `POSTGRES_*` в примере сами не создают сервер или базу;
-приложение подключается по `DATABASE_URL`.
+Copy the generated value into `SECRET_KEY` in `.env` and set `DATABASE_URL` to your database connection string:
 
-Для **новой пустой базы**:
+```dotenv
+DATABASE_URL=postgresql+psycopg2://finance:replace_db_password@127.0.0.1:5432/finance
+SECRET_KEY=replace_with_the_generated_value
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+APP_TIMEZONE=Europe/Berlin
+```
+
+`SECRET_KEY` must contain at least 32 characters. Environment variables take precedence over values in `.env`. Keep `.env` out of version control.
+
+If you need to create a database, connect to PostgreSQL as an administrator and run the following SQL, replacing the example password:
+
+```sql
+CREATE USER finance WITH PASSWORD 'replace_db_password';
+CREATE DATABASE finance OWNER finance;
+```
+
+The `POSTGRES_*` entries in `.env.example` do not provision a database. The application connects using `DATABASE_URL`.
+
+### 3. Initialize a new database and create an account
+
+For a **new, empty database**:
 
 ```bash
 python -m alembic upgrade head
 python -m app.cli create-user alice
+```
+
+The account command prompts for a password and creates starter categories. There is no public registration endpoint or automatically created default account.
+
+### 4. Start the application
+
+```bash
 python run.py
 ```
 
-Открыть [приложение](http://127.0.0.1:8080) или
-[документацию API](http://127.0.0.1:8080/docs).
-`/health` проверяет доступность приложения, `/health/ready` — возможность
-обратиться к таблице пользователей в БД.
+- Application: [http://127.0.0.1:8080](http://127.0.0.1:8080)
+- Interactive API documentation: [http://127.0.0.1:8080/docs](http://127.0.0.1:8080/docs)
+- Liveness check: `/health`
+- Database readiness check: `/health/ready`
+
+The development server binds to localhost and reloads when source files change. Chart.js is loaded from a CDN, so charts require network access.
+
+## Database migrations
+
+Application startup does not create or update tables. After pulling changes that include new migrations, apply them before starting the application:
+
+```bash
+python -m alembic upgrade head
+```
+
+The current migration chain contains:
+
+| Revision | Changes |
+| --- | --- |
+| `0001` | Original users, categories, transactions, and recurring-payment tables |
+| `0002` | `BIGINT` amounts, validation constraints, query indexes, recurring-payment creation dates, and occurrence records |
+
+For an existing database created before Alembic was introduced, make a backup and run `python -m scripts.preflight`. After separately confirming that its schema matches revision `0001`, use `python -m alembic stamp 0001`, then `python -m alembic upgrade head`. Stamping records a version; it does not validate or modify the existing schema. Revision `0002` assigns the migration date as the creation date of legacy recurring payments.
+
+## Account and payment administration
 
 ```bash
 python -m app.cli set-password alice
 python -m app.cli process-recurring
 ```
 
-Для старой базы без истории Alembic сначала сделайте резервную копию и
-выполните `python -m scripts.preflight`. Только после проверки соответствия
-схемы миграции `0001` можно выполнить `python -m alembic stamp 0001`, затем
-`python -m alembic upgrade head`. `stamp` сам не создаёт и не проверяет схему.
+Recurring payments are processed when the dashboard loads or when the CLI command runs. There is no background scheduler. Dates such as the 31st fall on the last available day in shorter months.
 
-## Тесты
+## Testing
+
+Create a separate PostgreSQL database owned by your test user. Its name must end in `_test`; for example, run `CREATE DATABASE finance_test OWNER finance;` as a database administrator.
 
 ```bash
 python -m pip install -r requirements-dev.txt
-export TEST_DATABASE_URL='postgresql+psycopg2://finance:password@127.0.0.1:5432/finance_test'
+export TEST_DATABASE_URL='postgresql+psycopg2://finance:replace_db_password@127.0.0.1:5432/finance_test'
 python -m pytest
 ```
 
-Создайте отдельную пустую тестовую PostgreSQL с именем, оканчивающимся на
-`_test`. Её пользователь должен иметь права создавать таблицы, индексы и типы.
-Тесты требуют явного `TEST_DATABASE_URL`: адрес основной базы из `.env` не
-используется. Они применяют миграции, задают тестовый JWT-ключ и откатывают
-изменения данных после каждого сценария. Схема остаётся в тестовой базе.
+The test suite requires an explicit `TEST_DATABASE_URL`, applies migrations, and uses a test JWT key. It does not use the application database URL from `.env`. Each test rolls back its data changes; the migrated schema remains in the test database.
 
-Проверяются вход и истечение токена, доступ к данным другого пользователя,
-создание/изменение/удаление операций, пагинация, проверка сумм, категории,
-баланс, аналитика, регулярные платежи и защита от повторного начисления.
+Coverage includes authentication and expired tokens, user data isolation, transaction CRUD and pagination, amount validation, category conflicts, balances, cash flow, and recurring-payment deduplication.
 
-## GitHub Actions CI
+## Continuous integration
 
-Workflow `.github/workflows/ci.yml` запускается при `push`, `pull_request`
-и вручную через `workflow_dispatch`. Для Python 3.13 и 3.14 он:
+The [GitHub Actions workflow](.github/workflows/ci.yml) runs on pushes, pull requests, and manual dispatch. For both Python 3.13 and 3.14, it:
 
-1. Поднимает отдельную PostgreSQL 17 и устанавливает зависимости.
-2. Проверяет совместимость установленных пакетов (`pip check`).
-3. Применяет миграции и сравнивает схему с моделями (`alembic check`).
-4. Запускает pytest на PostgreSQL.
-5. Откатывает миграции до пустой схемы и применяет их заново.
-6. Проверяет синтаксис всех модулей JavaScript.
+1. Starts an isolated PostgreSQL 17 service and installs dependencies.
+2. Checks package compatibility with `pip check`.
+3. Applies migrations and checks that the schema matches the models.
+4. Runs the integration tests.
+5. Rolls back and reapplies migrations in the disposable test database.
+6. Checks the syntax of the frontend JavaScript modules.
 
-Тестовые пароли и ключи заданы прямо в workflow и используются только для
-одноразового CI-окружения. GitHub Secrets для CI не нужны. Workflow имеет
-только право чтения репозитория и не выполняет деплой.
+CI uses disposable credentials and requires no repository secrets. It does not deploy the application.
 
-После коммита и push этих файлов вместе с текущим кодом приложения проверки
-появятся во вкладке **Actions**. В правилах защиты основной ветки можно
-сделать обе проверки `Python … / PostgreSQL` обязательными перед слиянием.
-Настройка сервиса основана на
-[документации GitHub](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers).
+## Current scope and limitations
 
-## Текущие ограничения
-
-- Интерфейс содержит изменение профиля, но `PUT /api/users/me` в API пока
-  отсутствует; сохранение профиля не работает.
-- Скрипты наполнения и замеров в `scripts/` — старые вспомогательные
-  инструменты. Они не входят в CI и не нужны для запуска приложения.
-- CI проверяет API и синтаксис JavaScript; браузерных end-to-end тестов пока нет.
-- Откат миграций в CI проверяется на тестовой базе без пользовательских
-  данных; перенос реальных исторических данных требует отдельной проверки.
+- Profile editing is not implemented in the backend.
+- Tests cover the API and business logic; browser end-to-end tests are not included.
+- Migration rollback is checked on an empty test dataset, not on a copy of historical user data.
+- The Alembic template currently contains a stray Markdown fence that must be removed before generating new migration files; applying the existing revisions is unaffected.
+- Legacy seeding and benchmark scripts are outside the CI checks and are not part of the application startup flow.
