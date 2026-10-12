@@ -4,12 +4,12 @@ from typing import Dict
 import random
 from datetime import datetime, timedelta
 
-from seed_old import amount_eur, success_count
+from app.cli import DEMO_PASSWORD as PASSWORD
+from app.cli import DEMO_USERNAME as USERNAME
 
 BASE_URL = "http://127.0.0.1:8080/api"
-USERNAME = "admin"
-PASSWORD = "admin"
 TX_COUNT = 1_000 # data count
+MAX_CONCURRENCY = 10
 
 
 def generate_payload(expense_cats, income_cats) -> Dict:
@@ -55,18 +55,30 @@ async def main():
             expense_cats = [c for c in categories if c["type"] == "expense"]
             income_cats = [c for c in categories if c["type"] == "income"]
         print(f"Preparing {TX_COUNT} requests...")
-        tasks = []
-        for _ in range(TX_COUNT):
-            payload = generate_payload(expense_cats, income_cats)
-            req = session.post(f"{BASE_URL}/transactions/", json=payload, headers=headers)
-            tasks.append(req)
+        semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+
+        async def create_transaction(payload: Dict) -> int:
+            async with semaphore:
+                async with session.post(
+                    f"{BASE_URL}/transactions/", json=payload, headers=headers
+                ) as response:
+                    await response.read()
+                    return response.status
+
+        tasks = [
+            create_transaction(generate_payload(expense_cats, income_cats))
+            for _ in range(TX_COUNT)
+        ]
 
         print("Sending requests...")
         start_time = datetime.now()
         responses = await asyncio.gather(*tasks, return_exceptions=True)
         duration = datetime.now() - start_time
-        success_count = sum(1 for resp in responses if resp.status == 200)
+        success_count = sum(status == 200 for status in responses if isinstance(status, int))
+        failure_count = TX_COUNT - success_count
         print(f"Done in {duration}. Success = {success_count}/{TX_COUNT}")
+        if failure_count:
+            raise SystemExit(f"Seeding failed for {failure_count} transactions.")
 
 if __name__ == "__main__":
     asyncio.run(main())

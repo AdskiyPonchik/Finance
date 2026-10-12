@@ -8,30 +8,42 @@ from app.core.auth import get_password_hash
 from app.core.database import engine
 from app.core.models import Category, CategoryType, RecurringTransaction, User
 
+DEMO_USERNAME = "alice"
+DEMO_PASSWORD = "alicealicealice"
 
-def create_user(username: str):
+
+def create_user_record(session: Session, username: str, password: str) -> User:
     username = username.strip()
     if not 1 <= len(username) <= 64:
-        raise SystemExit("Username must contain 1–64 characters.")
-    password = getpass("Password (at least 12 characters): ")
+        raise ValueError("Username must contain 1–64 characters.")
     if len(password) < 12 or len(password.encode("utf-8")) > 72:
-        raise SystemExit("Password must be at least 12 characters and at most 72 UTF-8 bytes.")
+        raise ValueError("Password must be at least 12 characters and at most 72 UTF-8 bytes.")
+    if session.exec(select(User).where(User.username == username)).first() is not None:
+        raise ValueError("User already exists.")
+    user = User(username=username, hashed_password=get_password_hash(password))
+    session.add(user)
+    session.flush()
+    for name, kind, color in [
+        ("Groceries", CategoryType.EXPENSE, "#4CAF50"),
+        ("Rent", CategoryType.EXPENSE, "#F44336"),
+        ("Salary", CategoryType.INCOME, "#FFC107"),
+        ("Savings", CategoryType.VAULT, "#795548"),
+    ]:
+        session.add(Category(name=name, type=kind, color=color, owner_id=user.id))
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def create_user(username: str):
+    password = getpass("Password (at least 12 characters): ")
     if password != getpass("Repeat password: "):
         raise SystemExit("Passwords do not match.")
-    with Session(engine) as session:
-        if session.exec(select(User).where(User.username == username)).first() is not None:
-            raise SystemExit("User already exists.")
-        user = User(username=username, hashed_password=get_password_hash(password))
-        session.add(user)
-        session.flush()
-        for name, kind, color in [
-            ("Groceries", CategoryType.EXPENSE, "#4CAF50"),
-            ("Rent", CategoryType.EXPENSE, "#F44336"),
-            ("Salary", CategoryType.INCOME, "#FFC107"),
-            ("Savings", CategoryType.VAULT, "#795548"),
-        ]:
-            session.add(Category(name=name, type=kind, color=color, owner_id=user.id))
-        session.commit()
+    try:
+        with Session(engine) as session:
+            create_user_record(session, username, password)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     print(f"User {username!r} created.")
 
 

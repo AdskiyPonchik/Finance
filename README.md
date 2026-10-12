@@ -68,8 +68,7 @@ run.py                # Local development server entry point
 ### Prerequisites
 
 - Python 3.13 or 3.14.
-- A running PostgreSQL instance; CI is configured to use PostgreSQL 17.
-- A database and a database user that owns it.
+- Docker Engine with the Docker Compose plugin for the local PostgreSQL 17 container.
 
 Run the following commands from the repository root. Shell examples use Bash.
 
@@ -95,35 +94,58 @@ DATABASE_URL=postgresql+psycopg2://finance:replace_db_password@127.0.0.1:5432/fi
 SECRET_KEY=replace_with_the_generated_value
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 APP_TIMEZONE=Europe/Berlin
+POSTGRES_USER=finance
+POSTGRES_DB=finance
+POSTGRES_PASSWORD=replace_db_password
+POSTGRES_PORT=5432
 ```
 
-`SECRET_KEY` must contain at least 32 characters. Environment variables take precedence over values in `.env`. Keep `.env` out of version control.
+`SECRET_KEY` must contain at least 32 characters. `POSTGRES_PASSWORD` must match the password embedded in `DATABASE_URL`. If the password contains URL-reserved characters, percent-encode it in `DATABASE_URL`. Environment variables take precedence over values in `.env`. Keep `.env` out of version control.
 
-If you need to create a database, connect to PostgreSQL as an administrator and run the following SQL, replacing the example password:
+### 3. Start PostgreSQL
 
-```sql
-CREATE USER finance WITH PASSWORD 'replace_db_password';
-CREATE DATABASE finance OWNER finance;
+```bash
+docker compose up -d --wait postgres
 ```
 
-The `POSTGRES_*` entries in `.env.example` do not provision a database. The application connects using `DATABASE_URL`.
+Compose creates the `finance` database and its owner on the first start, waits for PostgreSQL to become healthy, and stores data in a named Docker volume. The application still runs on the host, so `DATABASE_URL` uses `127.0.0.1`, not the Compose service name `postgres`.
 
-### 3. Initialize a new database and create an account
+Useful database lifecycle commands:
+
+```bash
+docker compose stop postgres       # Stop the database without deleting it
+docker compose up -d --wait postgres
+docker compose down                # Remove the container and keep database data
+docker compose down -v             # Delete the container and all local database data
+```
+
+The last command is destructive and is intended only for resetting local development data.
+
+### 4. Initialize a new database
 
 For a **new, empty database**:
 
 ```bash
 python -m alembic upgrade head
-python -m app.cli create-user alice
 ```
 
-The account command prompts for a password and creates starter categories. There is no public registration endpoint or automatically created default account.
+On the first interactive `python run.py` start, the application asks whether to create the documented demo account (`alice` / `alicealicealice`). Answer `n` to choose your own username and password instead. In both cases, the new account receives the starter categories.
 
-### 4. Start the application
+To create the demo account before starting the application, use the idempotent local seed script:
+
+```bash
+python -m scripts.seed_demo
+```
+
+The script never resets or overwrites an existing user's password. For any additional account, use `python -m app.cli create-user <username>` and enter the password when prompted. There is no public registration endpoint.
+
+### 5. Start the application
 
 ```bash
 python run.py
 ```
+
+If the demo account exists and the server is running, optional sample transactions can be generated with `python -m scripts.seed` from another terminal.
 
 - Application: [http://127.0.0.1:8080](http://127.0.0.1:8080)
 - Interactive API documentation: [http://127.0.0.1:8080/docs](http://127.0.0.1:8080/docs)
